@@ -44,7 +44,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 #endif
 
     // create device
-    hr = D3D12CreateDevice(dxgiAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pRenderer->device));
+    hr = D3D12CreateDevice(dxgiAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pRenderer->pDevice));
     if (FAILED(hr))
     {
         ErrorMsg("D3D12CreateDevice failed");
@@ -58,7 +58,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         0                                // UINT NodeMask;
     };
 
-    hr = pRenderer->device->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&pRenderer->commandQueue));
+    hr = pRenderer->pDevice->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&pRenderer->pCommandQueue));
     if (FAILED(hr))
     {
         ErrorMsg("Couldn't create command queue");
@@ -83,7 +83,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     swapChainDesc.SampleDesc.Count = 1;
     swapChainDesc.SampleDesc.Quality = 0;
 
-    hr = dxgiFactory->CreateSwapChain(pRenderer->commandQueue, &swapChainDesc, &pSwapChain);
+    hr = dxgiFactory->CreateSwapChain(pRenderer->pCommandQueue, &swapChainDesc, &pSwapChain);
     if (FAILED(hr))
     {
         ErrorMsg("Couldn't create swapchain");
@@ -91,11 +91,69 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     }
 
     // Query for swapchain3 swapchain
-    hr = pSwapChain->QueryInterface(&pRenderer->swapChain);
+    hr = pSwapChain->QueryInterface(&pRenderer->pSwapChain);
     if (FAILED(hr))
     {
+		ErrorMsg("Couldn't create swapchain3");
         return 0;
     }
+
+	// Submission fence
+	uint64 submitCount = 0;
+	hr = pRenderer->pDevice->CreateFence(submitCount, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pRenderer->pSubmitFence));
+	if (FAILED(hr))
+	{
+		ErrorMsg("Couldn't create submission fence");
+		return 0;
+	}
+
+	// create render target view descriptor heap for displayable back buffers
+	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+										renderer::swapChainBufferCount,
+										D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+										0 };
+
+	hr = pRenderer->pDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&pRenderer->rtvHeap));
+	if (FAILED(hr))
+	{
+		ErrorMsg("Failed to create render target heap");
+		return 0;
+	}
+
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvDescHandle = pRenderer->rtvHeap->GetCPUDescriptorHandleForHeapStart();
+	uint rtvDescHandleIncSize = pRenderer->pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	// Set up backbuffer heap
+	for (uint i = 0; i < renderer::swapChainBufferCount; ++i)
+	{
+		hr = pRenderer->pSwapChain->GetBuffer(i, IID_PPV_ARGS(&pRenderer->backbuf[i]));
+		if (FAILED(hr))
+		{
+			ErrorMsg("Failed to retrieve back buffer from swapchain");
+			return 0;
+		}
+
+		// Create RTVs in heap
+		pRenderer->pDevice->CreateRenderTargetView(pRenderer->backbuf[i], nullptr, rtvDescHandle);
+		rtvDescHandle.ptr += rtvDescHandleIncSize;
+	}
+
+	pRenderer->backbufCurrent = pRenderer->pSwapChain->GetCurrentBackBufferIndex();
+
+	// default scissor rect and viewport
+	pRenderer->defaultScissor = {};
+	pRenderer->defaultScissor.left   = 0;
+	pRenderer->defaultScissor.top    = 0;
+	pRenderer->defaultScissor.right  = renderer::width;
+	pRenderer->defaultScissor.bottom = renderer::height;
+
+	pRenderer->defaultViewport = {};
+	pRenderer->defaultViewport.Height   = static_cast<float>(renderer::height);
+	pRenderer->defaultViewport.Width    = static_cast<float>(renderer::width);
+	pRenderer->defaultViewport.TopLeftX = 0;
+	pRenderer->defaultViewport.TopLeftY = 0;
+	pRenderer->defaultViewport.MaxDepth = 1.0f;
+	pRenderer->defaultViewport.MinDepth = 0.0f;
 
     return true;
 }

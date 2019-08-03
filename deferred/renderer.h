@@ -7,9 +7,10 @@
 
 struct Dx12Renderer
 {
-	CComPtr<IDXGISwapChain3>	swapChain;
-	CComPtr<ID3D12Device>		device;
-	CComPtr<ID3D12CommandQueue> commandQueue;
+	CComPtr<IDXGISwapChain3>	pSwapChain;
+	CComPtr<ID3D12Device>		pDevice;
+	CComPtr<ID3D12CommandQueue> pCommandQueue;
+	CComPtr<ID3D12Fence>		pSubmitFence;
 
 	CComPtr<ID3D12DescriptorHeap> rtvHeap;
 	CComPtr<ID3D12Resource>       backbuf[renderer::swapChainBufferCount];

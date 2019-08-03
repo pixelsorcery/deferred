@@ -120,6 +120,7 @@
     <ClCompile Include="stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="heapsMgr.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="settings.h" />
     <ClInclude Include="stb_image.h" />
