@@ -1,6 +1,10 @@
 /*AMDG*/
 #include <windows.h>
 #include "renderer.h"
+#include "settings.h"
+#include "app.h"
+
+extern App* app;
 
 LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -53,7 +57,7 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
     wc.lpszClassName = "window";
     RegisterClassA(&wc);
 
-    RECT rc = { 0, 0, 640, 480 };
+    RECT rc = { 0, 0, renderer::width, renderer::height };
     AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
     HWND hwnd = CreateWindow("window", "renderer", WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hThisInst,
@@ -61,8 +65,10 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
 
     ShowWindow(hwnd, nCmdShow);
 
-	Dx12Renderer device = {};
-    initDevice(&device, hwnd);
+	if (false == app->init(hwnd))
+	{
+		return 0;
+	}
 
     // loop
     MSG msg;
@@ -79,7 +85,8 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
             break;
         }
 
-        // call render function here
+        // render frame
+		app->drawFrame();
     }
 
     DestroyWindow(hwnd);

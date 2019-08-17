@@ -51,6 +51,8 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         return false;
     }
 
+	ID3D12Device* pDevice = pRenderer->pDevice;
+
     D3D12_COMMAND_QUEUE_DESC commandQueueDesc = {
         D3D12_COMMAND_LIST_TYPE_DIRECT,  // D3D12_COMMAND_LIST_TYPE Type;
         0,                               // INT Priority;
@@ -58,12 +60,26 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         0                                // UINT NodeMask;
     };
 
-    hr = pRenderer->pDevice->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&pRenderer->pCommandQueue));
+    hr = pDevice->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&pRenderer->pCommandQueue));
     if (FAILED(hr))
     {
         ErrorMsg("Couldn't create command queue");
         return false;
     }
+
+	for (UINT i = 0; i < renderer::submitQueueDepth; i++)
+	{
+		CmdSubmission* sub = &pRenderer->cmdSubmissions[i];
+
+		// command allocator
+		hr = pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&sub->cmdAlloc));
+		if (FAILED(hr)) { return 0; }
+	}
+
+	hr = pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pRenderer->cmdSubmissions[0].cmdAlloc, nullptr, IID_PPV_ARGS(&pRenderer->pGfxCmdList));
+	if (FAILED(hr)) { ErrorMsg("Couldn't create command list"); }
+
+	ID3D12CommandList* pGfxCmdList = pRenderer->pGfxCmdList;
 
     // create swapchain
     CComPtr<IDXGISwapChain> pSwapChain;
@@ -100,7 +116,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 
 	// Submission fence
 	uint64 submitCount = 0;
-	hr = pRenderer->pDevice->CreateFence(submitCount, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pRenderer->pSubmitFence));
+	hr = pDevice->CreateFence(submitCount, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pRenderer->pSubmitFence));
 	if (FAILED(hr))
 	{
 		ErrorMsg("Couldn't create submission fence");
@@ -113,7 +129,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 										D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
 										0 };
 
-	hr = pRenderer->pDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&pRenderer->rtvHeap));
+	hr = pDevice->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&pRenderer->rtvHeap));
 	if (FAILED(hr))
 	{
 		ErrorMsg("Failed to create render target heap");
@@ -121,7 +137,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 	}
 
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvDescHandle = pRenderer->rtvHeap->GetCPUDescriptorHandleForHeapStart();
-	uint rtvDescHandleIncSize = pRenderer->pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	uint rtvDescHandleIncSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 	// Set up backbuffer heap
 	for (uint i = 0; i < renderer::swapChainBufferCount; ++i)
@@ -134,7 +150,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 		}
 
 		// Create RTVs in heap
-		pRenderer->pDevice->CreateRenderTargetView(pRenderer->backbuf[i], nullptr, rtvDescHandle);
+		pDevice->CreateRenderTargetView(pRenderer->backbuf[i], nullptr, rtvDescHandle);
 		rtvDescHandle.ptr += rtvDescHandleIncSize;
 	}
 
@@ -158,7 +174,88 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     return true;
 }
 
-Dx12Renderer::~Dx12Renderer()
+ID3D12Resource* createBuffer(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states)
 {
-	return;
+	HRESULT hr = S_OK;
+
+	D3D12_HEAP_PROPERTIES heapProps = {};
+	D3D12_RESOURCE_DESC desc = {};
+	ID3D12Resource* resource;
+
+	heapProps.Type = heapType;
+	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+
+	desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	desc.Alignment = 0;
+	desc.Width = size;
+	desc.Height = 1;
+	desc.DepthOrArraySize = 1;
+	desc.MipLevels = 1;
+	desc.Format = DXGI_FORMAT_UNKNOWN;
+	desc.SampleDesc.Count = 1;
+	desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+	hr = pRenderer->pDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE,
+		&desc, states, nullptr, IID_PPV_ARGS(&resource));
+
+	if (FAILED(hr)) { ErrorMsg("buffer creation failed!");  return 0; }
+
+	return resource;
+}
+
+void transitionResource(Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
+{
+	D3D12_RESOURCE_BARRIER barrier = {};
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	barrier.Transition.pResource = res;
+	barrier.Transition.StateBefore = before;
+	barrier.Transition.StateAfter = after;
+	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+	pRenderer->pGfxCmdList->ResourceBarrier(1, &barrier);
+}
+
+bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT rowPitch, UINT slicePitch)
+{
+	HRESULT hr = S_OK;
+	ID3D12Device* pDevice = pRenderer->pDevice;
+
+	D3D12_RESOURCE_DESC desc = pResource->GetDesc();
+
+	D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp;
+	UINT64 rowSize, totalBytes;
+	pDevice->GetCopyableFootprints(&desc, 0, 1, 0, &fp, nullptr, &rowSize, &totalBytes);
+
+	// create upload buffer
+	CComPtr<ID3D12Resource> uploadTemp;
+	uploadTemp.Attach(createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, totalBytes, D3D12_RESOURCE_STATE_GENERIC_READ));
+
+	// map the upload resource
+	BYTE* pBufData;
+	hr = uploadTemp->Map(0, nullptr, (void**)& pBufData);
+	if (FAILED(hr)) { ErrorMsg("mapping upload heap failed!");  return hr; }
+
+	// write data to upload resource
+	for (UINT z = 0; z < desc.DepthOrArraySize; ++z)
+	{
+		BYTE const* pSource = (BYTE const*)data + z * slicePitch;
+		for (UINT y = 0; y < desc.Height; ++y)
+		{
+			memcpy(pBufData, pSource, SIZE_T(desc.Width));
+			pBufData += rowSize;
+			pSource += rowPitch;
+		}
+	}
+
+	// unmap 
+	D3D12_RANGE written = { 0, (SIZE_T)totalBytes };
+	uploadTemp->Unmap(0, &written);
+
+	pRenderer->pGfxCmdList->CopyResource(pResource, uploadTemp);
+
+	pRenderer->cmdSubmissions[pRenderer->currentSubmission].deferredFrees.push_back((ID3D12DeviceChild*)uploadTemp);
+
+	return hr;
 }
