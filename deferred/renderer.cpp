@@ -199,7 +199,11 @@ ID3D12Resource* createBuffer(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, 
 	hr = pRenderer->pDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE,
 		&desc, states, nullptr, IID_PPV_ARGS(&resource));
 
-	if (FAILED(hr)) { ErrorMsg("buffer creation failed!");  return 0; }
+	if (FAILED(hr)) 
+	{ 
+		ErrorMsg("Buffer creation failed.");  
+		return nullptr;
+	}
 
 	return resource;
 }
@@ -235,7 +239,11 @@ bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const
 	// map the upload resource
 	BYTE* pBufData;
 	hr = uploadTemp->Map(0, nullptr, (void**)& pBufData);
-	if (FAILED(hr)) { ErrorMsg("mapping upload heap failed!");  return hr; }
+	if (FAILED(hr)) 
+	{ 
+		ErrorMsg("Mapping upload heap failed.");  
+		return false;
+	}
 
 	// write data to upload resource
 	for (UINT z = 0; z < desc.DepthOrArraySize; ++z)
@@ -257,5 +265,20 @@ bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const
 
 	pRenderer->cmdSubmissions[pRenderer->currentSubmission].deferredFrees.push_back((ID3D12DeviceChild*)uploadTemp);
 
-	return hr;
+	return true;
+}
+
+void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc)
+{
+	ZeroMemory(desc, sizeof(*desc));
+	desc->BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	desc->SampleMask = ~0u;
+	desc->RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	desc->RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	desc->RasterizerState.DepthClipEnable = TRUE;
+	desc->IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
+	desc->PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	desc->NumRenderTargets = 1;
+	desc->RTVFormats[0] = pRenderer->backbufFormat;
+	desc->SampleDesc.Count = 1;
 }

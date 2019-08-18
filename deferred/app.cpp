@@ -3,6 +3,7 @@
 #include "glm/vec2.hpp"
 #include "app.h"
 #include "util.h"
+#include "shaders.h"
 
 App* app = new App();
 
@@ -64,16 +65,75 @@ bool App::init(HWND hwnd)
 	vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
 	vertexBufferView.SizeInBytes = vbSize;
 	vertexBufferView.StrideInBytes = 28;
-	// create shaders
 
-	// create pipeline states
+	// create shaders
+	triangleVs = compileShaderFromFile("trangleVs.hlsl", "vs_5_1", "main");
+	trianglePs = compileShaderFromFile("tranglePs.hlsl", "ps_5_1", "main");
+
+	// create empty root signature
+	D3D12_ROOT_SIGNATURE_DESC rootDesc;
+	rootDesc.NumParameters = 0;
+	rootDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+	rootDesc.NumStaticSamplers = 0;
+	rootDesc.pStaticSamplers = 0;
+	rootDesc.pParameters = 0;
+
+	CComPtr<ID3DBlob> serializedRS;
+	hr = D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &serializedRS, nullptr);
+	if (S_OK != hr)
+	{
+		ErrorMsg("Triangle root signature creation failed.");
+		return false;
+	}
+
+	hr = pDevice->CreateRootSignature(0, serializedRS->GetBufferPointer(), serializedRS->GetBufferSize(), IID_PPV_ARGS(&triRootSignature));
+	if (S_OK != hr)
+	{
+		ErrorMsg("Triangle root sig creation failed.");
+		return false;
+	}
+
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	};
+
+	// create pipeline
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
+	setDefaultPipelineState(pRenderer.get(), &psoDesc);
+	psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
+	psoDesc.pRootSignature = triRootSignature;
+	psoDesc.VS = bytecodeFromBlob(triangleVs);
+	psoDesc.PS = bytecodeFromBlob(trianglePs);
+	psoDesc.DepthStencilState = {};
+
+	hr = pDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&triPipeline));
+
+	if (S_OK != hr)
+	{
+		ErrorMsg("Triangle pipeline creation failed.");
+		return false;
+	}
 
 	return true;
 }
 
 void App::drawFrame()
 {
+	// clear
+	HRESULT hr = S_OK;
+
+	ID3D12GraphicsCommandList* pCmdList = pRenderer->pGfxCmdList;
+
+	transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+	float clearCol[4] = { 0.4f, 0.4f, 0.6f, 1.0f };
+	pCmdList->ClearRenderTargetView(pRenderer->backbufDescHandle[pRenderer->backbufCurrent], clearCol, 0, nullptr);
+
 	// draw triangle
 
 	// flip bufers
+	transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+
+	swapBuffers(pRenderer.get(), vsyncOff);
 }
