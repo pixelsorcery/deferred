@@ -7,9 +7,10 @@
 
 App* app = new App();
 
+App::App() : pRenderer(new Dx12Renderer()), vertexBufferView() {};
+
 bool App::init(HWND hwnd)
 {
-	pRenderer = std::make_unique<Dx12Renderer>(Dx12Renderer());
 	initDevice(pRenderer.get(), hwnd);
 
 	ID3D12Device* pDevice = pRenderer->pDevice;
@@ -67,13 +68,13 @@ bool App::init(HWND hwnd)
 	vertexBufferView.StrideInBytes = 28;
 
 	// create shaders
-	triangleVs = compileShaderFromFile("trangleVs.hlsl", "vs_5_1", "main");
-	trianglePs = compileShaderFromFile("tranglePs.hlsl", "ps_5_1", "main");
+	triangleVs = compileShaderFromFile("triangleVS.hlsl", "vs_5_1", "main");
+	trianglePs = compileShaderFromFile("trianglePs.hlsl", "ps_5_1", "main");
 
 	// create empty root signature
 	D3D12_ROOT_SIGNATURE_DESC rootDesc;
 	rootDesc.NumParameters = 0;
-	rootDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+	rootDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	rootDesc.NumStaticSamplers = 0;
 	rootDesc.pStaticSamplers = 0;
 	rootDesc.pParameters = 0;
@@ -106,6 +107,7 @@ bool App::init(HWND hwnd)
 	psoDesc.VS = bytecodeFromBlob(triangleVs);
 	psoDesc.PS = bytecodeFromBlob(trianglePs);
 	psoDesc.DepthStencilState = {};
+	psoDesc.RTVFormats[0] = pRenderer->colorFormat;
 
 	hr = pDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&triPipeline));
 
@@ -125,6 +127,12 @@ void App::drawFrame()
 
 	ID3D12GraphicsCommandList* pCmdList = pRenderer->pGfxCmdList;
 
+	// set root sig
+	//cmdList->SetGraphicsRootSignature(blockRootSig);
+
+	// set rt
+	pCmdList->OMSetRenderTargets(1, &pRenderer->backbufDescHandle[pRenderer->backbufCurrent], false, 0);
+
 	transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 	float clearCol[4] = { 0.4f, 0.4f, 0.6f, 1.0f };
@@ -132,8 +140,10 @@ void App::drawFrame()
 
 	// draw triangle
 
-	// flip bufers
+	// exec cmd buffer
 	transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+	submitCmdBuffer(pRenderer.get());
 
-	swapBuffers(pRenderer.get(), vsyncOff);
+	// present
+	present(pRenderer.get(), vsyncOff);
 }

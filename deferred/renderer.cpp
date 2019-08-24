@@ -11,9 +11,6 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 {
     HRESULT hr = S_OK;
 
-    DXGI_FORMAT colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-    DXGI_FORMAT depthFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-
     CComPtr<IDXGIFactory1> dxgiFactory;
     hr = CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory));
     if (FAILED(hr))
@@ -31,11 +28,10 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     }
 
 #if defined(_DEBUG)
-	CComPtr<ID3D12Debug> debugController;
-    hr = D3D12GetDebugInterface(IID_PPV_ARGS(&debugController));
+    hr = D3D12GetDebugInterface(IID_PPV_ARGS(&pRenderer->debugController));
     if (SUCCEEDED(hr))
     {
-		debugController->EnableDebugLayer();
+		pRenderer->debugController->EnableDebugLayer();
     }
     else
     {
@@ -94,7 +90,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     swapChainDesc.Flags = 0;
     swapChainDesc.BufferDesc.Width = renderer::width;
     swapChainDesc.BufferDesc.Height = renderer::height;
-    swapChainDesc.BufferDesc.Format = colorFormat;
+    swapChainDesc.BufferDesc.Format = pRenderer->colorFormat;
     swapChainDesc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
     swapChainDesc.SampleDesc.Count = 1;
     swapChainDesc.SampleDesc.Quality = 0;
@@ -123,6 +119,8 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 		return 0;
 	}
 
+	pRenderer->fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
 	// create render target view descriptor heap for displayable back buffers
 	D3D12_DESCRIPTOR_HEAP_DESC desc = { D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
 										renderer::swapChainBufferCount,
@@ -148,6 +146,8 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 			ErrorMsg("Failed to retrieve back buffer from swapchain");
 			return 0;
 		}
+
+		pRenderer->backbufDescHandle[i] = rtvDescHandle;
 
 		// Create RTVs in heap
 		pDevice->CreateRenderTargetView(pRenderer->backbuf[i], nullptr, rtvDescHandle);
@@ -281,4 +281,92 @@ void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_ST
 	desc->NumRenderTargets = 1;
 	desc->RTVFormats[0] = pRenderer->backbufFormat;
 	desc->SampleDesc.Count = 1;
+}
+
+void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue)
+{
+	HRESULT hr = S_OK;
+
+	pRenderer->pCommandQueue->Signal(fence, targetValue);
+
+	if (fence->GetCompletedValue() < targetValue)
+	{
+		fence->SetEventOnCompletion(targetValue, pRenderer->fenceEvent);
+		WaitForSingleObject(pRenderer->fenceEvent, INFINITE);
+	}
+}
+
+
+void submitCmdBuffer(Dx12Renderer* pRenderer)
+{
+	HRESULT hr = S_OK;
+	ID3D12GraphicsCommandList* const pCmdList = pRenderer->pGfxCmdList;
+	hr = pCmdList->Close();
+
+	if (FAILED(hr))
+	{
+		ErrorMsg("Failed to close gfx cmd list.");
+		return;
+	}
+
+	ID3D12CommandList* ppCmds[] = { pRenderer->pGfxCmdList };
+	pRenderer->pCommandQueue->ExecuteCommandLists(1, ppCmds);
+
+	// Insert a signal event for current frame so we can wait for it to be done
+	CmdSubmission* pSub = &pRenderer->cmdSubmissions[pRenderer->currentSubmission];
+	hr = pRenderer->pCommandQueue->Signal(pRenderer->pSubmitFence, pSub->completionFenceVal);
+
+	if (FAILED(hr))
+	{
+		ErrorMsg("Failed to signal cmd queue.");
+		return;
+	}
+
+	// Get next submission and wait if we have to
+	UINT nextSubmissionIdx = (pRenderer->currentSubmission + 1) % renderer::submitQueueDepth;
+	if (pRenderer->pSubmitFence->GetCompletedValue() < pSub->completionFenceVal)
+	{
+		pRenderer->pSubmitFence->SetEventOnCompletion(pSub->completionFenceVal, pRenderer->fenceEvent);
+		WaitForSingleObject(pRenderer->fenceEvent, INFINITE);
+	}
+
+	// Clear allocations in new submission
+	pRenderer->cmdSubmissions[nextSubmissionIdx].deferredFrees.clear();
+
+	// Update current submission idx
+	pRenderer->currentSubmission = nextSubmissionIdx;
+
+	// Increment fence
+	pSub->completionFenceVal = ++pRenderer->submitCount;
+
+	// switch cmd list over
+	hr = pRenderer->pGfxCmdList->Reset(pRenderer->cmdSubmissions[nextSubmissionIdx].cmdAlloc, nullptr);
+	if (FAILED(hr)) 
+	{ 
+		ErrorMsg("gfxCmdList->Reset(cmdSubmission[next_submission].cmdAlloc, nullptr) failed.");  
+		return; 
+	}
+}
+
+void present(Dx12Renderer* pRenderer, vsyncType vsync)
+{
+	HRESULT hr = S_OK;
+	// present
+	DXGI_PRESENT_PARAMETERS pp = { 0, nullptr, nullptr, nullptr };
+	hr = pRenderer->pSwapChain->Present1(vsync ? 1 : 0, vsync ? 0 : DXGI_PRESENT_RESTART, &pp);
+	if (FAILED(hr)) 
+	{ 
+		ErrorMsg("swapChain->Present1(vsync ? 1 : 0, vsync ? 0 : DXGI_PRESENT_RESTART, &pp) failed.");
+		return;
+	}
+
+	pRenderer->backbufCurrent = pRenderer->pSwapChain->GetCurrentBackBufferIndex();
+}
+
+Dx12Renderer::~Dx12Renderer()
+{
+	for (int i = 0; i < renderer::submitQueueDepth; i++)
+	{
+		waitOnFence(this, pSubmitFence, cmdSubmissions[i].completionFenceVal);
+	}
 }

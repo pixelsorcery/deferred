@@ -30,13 +30,15 @@ enum vsyncType
 
 struct Dx12Renderer
 {
-	CComPtr<IDXGISwapChain3>	pSwapChain;
-	CComPtr<ID3D12Device>		pDevice;
-	CComPtr<ID3D12CommandQueue> pCommandQueue;
-	CComPtr<ID3D12Fence>		pSubmitFence;
-
+	CComPtr<IDXGISwapChain3>	       pSwapChain;
+	CComPtr<ID3D12Device>		       pDevice;
+	CComPtr<ID3D12CommandQueue>        pCommandQueue;
+	CComPtr<ID3D12Fence>		       pSubmitFence;
 	CComPtr<ID3D12GraphicsCommandList> pGfxCmdList;
-
+#if defined(_DEBUG)
+	CComPtr<ID3D12Debug>               debugController;
+#endif
+	HANDLE                        fenceEvent;
 	CComPtr<ID3D12DescriptorHeap> rtvHeap;
 	CComPtr<ID3D12Resource>       backbuf[renderer::swapChainBufferCount];
 	CComPtr<ID3D12Resource>       dsv;
@@ -44,18 +46,25 @@ struct Dx12Renderer
 	DXGI_FORMAT                   backbufFormat;
 	UINT                          backbufCurrent;
 
-	D3D12_RECT defaultScissor;
+	D3D12_RECT     defaultScissor;
 	D3D12_VIEWPORT defaultViewport;
 
 	CmdSubmission cmdSubmissions[renderer::submitQueueDepth];
 	UINT		  currentSubmission;
-	~Dx12Renderer() = default;
+
+	UINT64        submitCount;
+
+	static constexpr DXGI_FORMAT colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	static constexpr DXGI_FORMAT depthFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+	~Dx12Renderer();
 };
 
 bool initDevice(Dx12Renderer* pRenderer, HWND hwnd);
 ID3D12Resource* createBuffer(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states);
 bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT rowPitch, UINT slicePitch);
 void transitionResource(Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
-bool waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue);
+void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue);
 void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc);
-void swapBuffers(Dx12Renderer* pRenderer, vsyncType vsync);
+void submitCmdBuffer(Dx12Renderer* pRenderer);
+void present(Dx12Renderer* pRenderer, vsyncType vsync);

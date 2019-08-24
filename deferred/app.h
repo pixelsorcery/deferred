@@ -7,10 +7,9 @@
 class App
 {
 public:
-	App() = default;
+	App();
 	bool init(HWND hwnd);
 	void drawFrame();
-
 private:
 	std::unique_ptr<Dx12Renderer> pRenderer;
 	CComPtr<ID3D12Resource>  vertexBuffer;
