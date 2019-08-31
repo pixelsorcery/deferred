@@ -61,11 +61,11 @@ bool App::init(HWND hwnd)
 
 	if (FAILED(hr)) { assert(!"vb upload failed"); }
 
-	transitionResource(pRenderer.get(), vertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
+	transitionResource(pRenderer.get(), vertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 
 	vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
 	vertexBufferView.SizeInBytes = vbSize;
-	vertexBufferView.StrideInBytes = 28;
+	vertexBufferView.StrideInBytes = sizeof(Vertex);
 
 	// create shaders
 	triangleVs = compileShaderFromFile("triangleVS.hlsl", "vs_5_1", "main");
@@ -97,6 +97,7 @@ bool App::init(HWND hwnd)
 	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
 	// create pipeline
@@ -127,18 +128,29 @@ void App::drawFrame()
 
 	ID3D12GraphicsCommandList* pCmdList = pRenderer->pGfxCmdList;
 
-	// set root sig
-	//cmdList->SetGraphicsRootSignature(blockRootSig);
-
 	// set rt
 	pCmdList->OMSetRenderTargets(1, &pRenderer->backbufDescHandle[pRenderer->backbufCurrent], false, 0);
 
 	transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
+	// clear rt
 	float clearCol[4] = { 0.4f, 0.4f, 0.6f, 1.0f };
 	pCmdList->ClearRenderTargetView(pRenderer->backbufDescHandle[pRenderer->backbufCurrent], clearCol, 0, nullptr);
+	pCmdList->RSSetViewports(1, &pRenderer->defaultViewport);
+	pCmdList->RSSetScissorRects(1, &pRenderer->defaultScissor);
+
+	// set prim topology
+	pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	pCmdList->IASetVertexBuffers(0, 1, &vertexBufferView);
+
+	// set root sig
+	pCmdList->SetGraphicsRootSignature(triRootSignature);
+
+	// Set pipeline
+	pCmdList->SetPipelineState(triPipeline);
 
 	// draw triangle
+	pCmdList->DrawInstanced(3, 1, 0, 0);
 
 	// exec cmd buffer
 	transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
