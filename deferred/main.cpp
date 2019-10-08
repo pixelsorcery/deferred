@@ -3,6 +3,8 @@
 #include "renderer.h"
 #include "settings.h"
 #include "app.h"
+#include "model.h"
+
 
 extern App* app;
 

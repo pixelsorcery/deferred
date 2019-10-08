@@ -120,16 +120,20 @@
     <ClCompile Include="renderer.cpp" />
     <ClCompile Include="shaders.cpp" />
     <ClCompile Include="stb_image.cpp" />
+    <ClCompile Include="tiny_gltf.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h" />
     <ClInclude Include="heapMgr.h" />
     <ClInclude Include="heaps.h" />
+    <ClInclude Include="json.hpp" />
+    <ClInclude Include="model.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="settings.h" />
     <ClInclude Include="shaders.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="tiny_gltf.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>

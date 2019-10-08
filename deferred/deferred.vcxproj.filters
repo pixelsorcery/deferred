@@ -16,6 +16,9 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{eaed43cd-70ee-46f8-a72d-e7f5e1b289fd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\imported">
+      <UniqueIdentifier>{c86c6d07-8be5-4ba1-b79b-19149e8e3823}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -36,6 +39,9 @@
     <ClCompile Include="shaders.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="tiny_gltf.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="renderer.h">
@@ -45,9 +51,6 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="settings.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="stb_image.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="heapMgr.h">
@@ -60,6 +63,18 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="shaders.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tiny_gltf.h">
+      <Filter>Source Files\imported</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image.h">
+      <Filter>Source Files\imported</Filter>
+    </ClInclude>
+    <ClInclude Include="json.hpp">
+      <Filter>Source Files\imported</Filter>
+    </ClInclude>
+    <ClInclude Include="model.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
