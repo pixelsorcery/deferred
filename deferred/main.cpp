@@ -4,9 +4,10 @@
 #include "settings.h"
 #include "app.h"
 #include "model.h"
-
+#include "app2.h"
 
 extern App* app;
+extern App2* app2;
 
 LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -68,7 +69,7 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
 
     ShowWindow(hwnd, nCmdShow);
 
-	if (false == app->init(hwnd))
+	if (false == app2->init(hwnd))
 	{
 		return 0;
 	}
@@ -84,11 +85,11 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
 		}
 
         // render frame
-		app->drawFrame();
+		app2->drawFrame();
     }
 
     DestroyWindow(hwnd);
-	delete(app);
+	delete(app2);
 
     return (int)msg.wParam;
 }

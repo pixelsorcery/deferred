@@ -42,6 +42,9 @@
     <ClCompile Include="tiny_gltf.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="app2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="renderer.h">
@@ -77,12 +80,24 @@
     <ClInclude Include="model.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="app2.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gltfHelper.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="trianglePs.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="triangleVs.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="boxTexturedVs.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="boxTexturedPs.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

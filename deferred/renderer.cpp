@@ -279,7 +279,7 @@ void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_ST
 	desc->IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
 	desc->PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	desc->NumRenderTargets = 1;
-	desc->RTVFormats[0] = pRenderer->backbufFormat;
+	desc->RTVFormats[0] = pRenderer->colorFormat;
 	desc->SampleDesc.Count = 1;
 }
 

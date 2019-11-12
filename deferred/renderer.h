@@ -28,6 +28,34 @@ enum vsyncType
 	vsyncOff
 };
 
+struct Texture
+{
+    ID3D12Resource* pRes;
+    UINT            width;
+    UINT            height;
+};
+
+struct DescriptorHeap
+{
+    CComPtr<ID3D12DescriptorHeap> pDescHeap;
+    D3D12_CPU_DESCRIPTOR_HANDLE   cpuDescHandle;
+    D3D12_GPU_DESCRIPTOR_HANDLE   gpuDescHandle;
+    UINT                          descSize;
+
+    void Init(ID3D12Device* pDevice, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT size, D3D12_DESCRIPTOR_HEAP_FLAGS flags)
+    {
+        D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+        desc.Type = heapType;
+        desc.Flags = flags;
+        desc.NumDescriptors = size;
+
+        pDevice->CreateDescriptorHeap(&desc, __uuidof(ID3D12DescriptorHeap), (void**)&pDescHeap);
+        cpuDescHandle = pDescHeap->GetCPUDescriptorHandleForHeapStart();
+        gpuDescHandle = pDescHeap->GetGPUDescriptorHandleForHeapStart();
+        descSize = pDevice->GetDescriptorHandleIncrementSize(desc.Type);
+    }
+};
+
 struct Dx12Renderer
 {
 	CComPtr<IDXGISwapChain3>	       pSwapChain;
@@ -43,7 +71,7 @@ struct Dx12Renderer
 	CComPtr<ID3D12Resource>       backbuf[renderer::swapChainBufferCount];
 	CComPtr<ID3D12Resource>       dsv;
 	D3D12_CPU_DESCRIPTOR_HANDLE   backbufDescHandle[renderer::swapChainBufferCount];
-	DXGI_FORMAT                   backbufFormat;
+	DXGI_FORMAT                   backbufFormat; //TODO set this correctly?
 	UINT                          backbufCurrent;
 
 	D3D12_RECT     defaultScissor;
@@ -68,3 +96,4 @@ void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue
 void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc);
 void submitCmdBuffer(Dx12Renderer* pRenderer);
 void present(Dx12Renderer* pRenderer, vsyncType vsync);
+Texture createTexture(ID3D12Device* pDevice);

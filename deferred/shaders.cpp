@@ -3,7 +3,9 @@
 #include <d3dcompiler.h>
 #include <fstream>
 #include <string>
+#include <assert.h>
 #include "util.h"
+#include "shaders.h"
 
 D3D12_SHADER_BYTECODE bytecodeFromBlob(ID3DBlob* blob)
 {
@@ -17,7 +19,6 @@ D3D12_SHADER_BYTECODE bytecodeFromBlob(ID3DBlob* blob)
 ID3DBlob* compileShaderFromFile(char const* filename, char const* profile, char const* entrypt)
 {
 	ID3DBlob* code;
-	ID3DBlob* errors;
 
 	std::string shaderText;
 
@@ -37,17 +38,29 @@ ID3DBlob* compileShaderFromFile(char const* filename, char const* profile, char 
 		return nullptr;
 	}
 
-	HRESULT hr = D3DCompile(shaderText.c_str(), strlen(shaderText.c_str()), NULL, NULL, NULL, entrypt, profile, D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
-		&code, &errors);
-
-	if (errors)
-	{
-		char* error = (char*)errors->GetBufferPointer();
-		errors->Release();
-		ErrorMsg("shader failed to compile!\n");
-	}
+    code = compileSource(shaderText.c_str(), profile, entrypt);
 
 	file.close();
 
 	return code;
+}
+
+// compile shader
+ID3DBlob* compileSource(char const* source, char const* profile, char const* entrypt)
+{
+    ID3DBlob* code;
+    ID3DBlob* errors;
+    HRESULT hr = D3DCompile(source, strlen(source), NULL, NULL, NULL, entrypt, profile, D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
+        &code, &errors);
+
+    assert(SUCCEEDED(hr));
+
+    if (errors)
+    {
+        char* error = (char*)errors->GetBufferPointer();
+        errors->Release();
+        assert(!"shader failed to compile!\n");
+    }
+
+    return code;
 }

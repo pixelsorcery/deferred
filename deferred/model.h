@@ -8,7 +8,7 @@ class Model
 
 };
 
-bool loadModel(tinygltf::Model& model, const char* filename)
+static bool loadModel(tinygltf::Model& model, const char* filename)
 {
 	tinygltf::TinyGLTF loader;
 	std::string err;

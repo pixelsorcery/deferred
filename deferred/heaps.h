@@ -5,11 +5,11 @@
 class HeapMgr
 {
 public:
-	HeapMgr* GetHeapMgr();
+    HeapMgr* GetHeapMgr();
 
 private:
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeap;
-	HeapMgr();
-	HeapMgr(const HeapMgr&);
-	HeapMgr& operator=(const HeapMgr&);
+    D3D12_DESCRIPTOR_HEAP_DESC rtvHeap;
+    HeapMgr();
+    HeapMgr(const HeapMgr&);
+    HeapMgr& operator=(const HeapMgr&);
 };
