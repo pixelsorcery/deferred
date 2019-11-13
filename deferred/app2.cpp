@@ -15,7 +15,7 @@ App2* app2 = new App2();
 
 App2::App2() : pRenderer(new Dx12Renderer()) {};
 
-
+#if defined(_DEBUG)
 #include <iostream>
 
 void dbgModel(tinygltf::Model& model) {
@@ -50,6 +50,7 @@ void dbgModel(tinygltf::Model& model) {
         }
     }
 }
+#endif
 
 bool App2::init(HWND hwnd)
 {
@@ -349,6 +350,40 @@ bool App2::init(HWND hwnd)
         return false;
     }
 
+    // create a descriptor table for cbv and srv
+    D3D12_ROOT_DESCRIPTOR_TABLE cbvDescriptorTable;
+    cbvDescriptorTable.NumDescriptorRanges = cbvRange.NumDescriptors;
+    cbvDescriptorTable.pDescriptorRanges = &cbvRange;
+
+    D3D12_ROOT_DESCRIPTOR_TABLE srvDescriptorTable;
+    srvDescriptorTable.NumDescriptorRanges = srvRange.NumDescriptors;
+    srvDescriptorTable.pDescriptorRanges = &srvRange;
+
+    for (int i = 0; i < renderer::swapChainBufferCount; ++i)
+    {
+        D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+        heapDesc.NumDescriptors = 2;
+        heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        hr = pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pRenderer->mainDescriptorHeap[i]));
+        if (FAILED(hr))
+        {
+            ErrorMsg("Descriptor heap creation failed.");
+            return false;
+        }
+    }
+
+    for (int i = 0; i < renderer::swapChainBufferCount; ++i)
+    {
+        D3D12_RESOURCE_DESC heapDesc = {};
+        D3D12_HEAP_PROPERTIES heapProps = {};
+        heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+        hr = pDevice->CreateCommittedResource(&heapProps,
+            D3D12_HEAP_FLAG_NONE,
+            )
+
+
     return true;
 }
 
@@ -381,6 +416,22 @@ void App2::drawFrame()
 
     // Set pipeline
     pCmdList->SetPipelineState(boxPipeline);
+
+    // update model view projection matrix
+    glm::mat4 model = {};
+
+    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f),
+                                 glm::vec3(0.0f, 0.0f, 0.0f),
+                                 glm::vec3(0.0f, 1.0f, 0.0f));
+
+
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f),
+                                      (float)renderer::width / (float)renderer::height,
+                                      0.1f,
+                                      100.0f);
+
+    glm::mat4 mvp = proj * view * model;
+
 
     //// draw triangle
     //pCmdList->DrawInstanced(3, 1, 0, 0);
