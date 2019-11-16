@@ -30,4 +30,5 @@ private:
     CComPtr<ID3D12RootSignature>  boxRootSignature;
     tinygltf::Model               boxModel;
     std::vector<ID3D12Resource*>  boxTextures;
+    UINT                          indexBufSize;
 };

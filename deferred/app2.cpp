@@ -209,13 +209,13 @@ bool App2::init(HWND hwnd)
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     params[0].DescriptorTable.NumDescriptorRanges = 1;
     params[0].DescriptorTable.pDescriptorRanges = &cbvRange;
-    params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
 
     params[1] = {};
     params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     params[1].DescriptorTable.NumDescriptorRanges = 1;
     params[1].DescriptorTable.pDescriptorRanges = &srvRange;
-    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_STATIC_SAMPLER_DESC sampDesc = {};
     sampDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
@@ -302,6 +302,8 @@ bool App2::init(HWND hwnd)
                 bufView.BufferLocation = boxBuffers.back()->GetGPUVirtualAddress();
                 bufView.SizeInBytes = (UINT)gltfBufView.byteLength;
                 bufView.StrideInBytes = (UINT)gltfBufView.byteStride;
+
+                boxBufferViews.push_back(bufView);
             }
 
             // load index buffer
@@ -318,6 +320,14 @@ bool App2::init(HWND hwnd)
                 0);
 
             transitionResource(pRenderer.get(), pIndexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+
+            UINT stride = GetFormatSize(boxModel.accessors[accessorIdx].componentType);
+            indexBufView = {};
+            indexBufView.BufferLocation = pIndexBuffer->GetGPUVirtualAddress();
+            indexBufView.Format = (gltfIdxBufView.byteStride == 4) ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
+            indexBufView.SizeInBytes = static_cast<UINT>(gltfIdxBufView.byteLength);
+
+            indexBufSize = static_cast<UINT>(boxModel.accessors[accessorIdx].count);
         }
     }
 
@@ -365,7 +375,7 @@ bool App2::init(HWND hwnd)
         heapDesc.NumDescriptors = 2;
         heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
         heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-        hr = pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pRenderer->mainDescriptorHeap[i]));
+        hr = pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pRenderer->mainDescriptorHeaps[i]));
         if (FAILED(hr))
         {
             ErrorMsg("Descriptor heap creation failed.");
@@ -375,14 +385,20 @@ bool App2::init(HWND hwnd)
 
     for (int i = 0; i < renderer::swapChainBufferCount; ++i)
     {
-        D3D12_RESOURCE_DESC heapDesc = {};
-        D3D12_HEAP_PROPERTIES heapProps = {};
-        heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+        ID3D12Resource* cbvSrvUploadHeap;
+        ID3D12Resource* cbvSrvHeap;
 
-        hr = pDevice->CreateCommittedResource(&heapProps,
-            D3D12_HEAP_FLAG_NONE,
-            )
+        cbvSrvUploadHeap = createBuffer(pRenderer.get(), D3D12_HEAP_TYPE_UPLOAD, 512, D3D12_RESOURCE_STATE_GENERIC_READ);
+        cbvSrvHeap = createBuffer(pRenderer.get(), D3D12_HEAP_TYPE_DEFAULT, 512, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
+        pRenderer.get()->cbvSrvUavUploadHeaps[i].Attach(cbvSrvUploadHeap);
+        pRenderer.get()->cbvSrvUavHeaps[i].Attach(cbvSrvHeap);
+
+        D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+        cbvDesc.BufferLocation = cbvSrvHeap->GetGPUVirtualAddress();
+        cbvDesc.SizeInBytes = (sizeof(16 * 4) + 255) & ~255;    // CB size is required to be 256-byte aligned.
+        pDevice->CreateConstantBufferView(&cbvDesc, pRenderer->mainDescriptorHeaps[i]->GetCPUDescriptorHandleForHeapStart());
+    }
 
     return true;
 }
@@ -405,12 +421,6 @@ void App2::drawFrame()
     pCmdList->RSSetViewports(1, &pRenderer->defaultViewport);
     pCmdList->RSSetScissorRects(1, &pRenderer->defaultScissor);
 
-    // set prim topology
-    pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    pCmdList->IASetVertexBuffers(0, static_cast<UINT>(boxBufferViews.size()), &boxBufferViews[0]);
-
-    pCmdList->IASetIndexBuffer(&indexBufView);
-
     // set root sig
     pCmdList->SetGraphicsRootSignature(boxRootSignature);
 
@@ -418,7 +428,7 @@ void App2::drawFrame()
     pCmdList->SetPipelineState(boxPipeline);
 
     // update model view projection matrix
-    glm::mat4 model = {};
+    glm::mat4 model = glm::mat4(1.0);
 
     glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f),
                                  glm::vec3(0.0f, 0.0f, 0.0f),
@@ -432,12 +442,29 @@ void App2::drawFrame()
 
     glm::mat4 mvp = proj * view * model;
 
+    D3D12_RANGE range = {};
+    range.Begin = 0;
+    range.End = 0;
+    UINT* pData;
+    pRenderer->cbvSrvUavUploadHeaps[pRenderer->backbufCurrent]->Map(0, &range, reinterpret_cast<void**>(&pData));
 
-    //// draw triangle
-    //pCmdList->DrawInstanced(3, 1, 0, 0);
+    memcpy(pData, &mvp, sizeof(mvp));
 
+    transitionResource(pRenderer.get(), pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+
+    pCmdList->CopyResource(pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], pRenderer->cbvSrvUavUploadHeaps[pRenderer->backbufCurrent]);
+
+    transitionResource(pRenderer.get(), pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+    // set prim topology
+    pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    pCmdList->IASetVertexBuffers(0, static_cast<UINT>(boxBuffers.size()), &boxBufferViews[0]);
+    pCmdList->IASetIndexBuffer(&indexBufView);
+
+    pCmdList->SetDescriptorHeaps(1, &pRenderer->mainDescriptorHeaps[pRenderer->backbufCurrent].p);
+    pCmdList->SetGraphicsRootDescriptorTable(0, pRenderer->mainDescriptorHeaps[pRenderer->backbufCurrent]->GetGPUDescriptorHandleForHeapStart());
     // draw box
-
+    pCmdList->DrawIndexedInstanced(indexBufSize, 1, 0, 0, 0);
 
     // exec cmd buffer
     transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);

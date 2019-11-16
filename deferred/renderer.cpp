@@ -208,6 +208,73 @@ ID3D12Resource* createBuffer(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, 
 	return resource;
 }
 
+Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT width, UINT height, DXGI_FORMAT format)
+{
+    Texture tex = {};
+
+    HRESULT hr = S_OK;
+    D3D12_HEAP_PROPERTIES heapProps = {};
+    D3D12_RESOURCE_DESC desc = {};
+
+    tex.width = width;
+    tex.height = height;
+
+    heapProps.Type = heapType;
+    heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    heapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    desc.Alignment = 0;
+    desc.Width = width;
+    desc.Height = height;
+    desc.DepthOrArraySize = 1;
+    desc.MipLevels = 1;
+    desc.Format = format;
+    desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
+    desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+
+    hr = pRenderer->pDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE,
+        &desc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&tex.pRes));
+
+    return tex;
+}
+
+bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT width, UINT height, UINT comp, DXGI_FORMAT format)
+{
+    HRESULT hr = S_OK;
+    ID3D12Device* pDevice = pRenderer->pDevice;
+
+    D3D12_RESOURCE_DESC desc = pResource->GetDesc();
+
+    // create upload buffer
+    CComPtr<ID3D12Resource> uploadTemp;
+    uploadTemp.Attach(createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, width * height * comp, D3D12_RESOURCE_STATE_GENERIC_READ));
+
+    unsigned char* pBufData;
+    uploadTemp->Map(0, nullptr, reinterpret_cast<void**>(&pBufData));
+
+    // copy data to buffer
+    memcpy(pBufData, data, width * height * comp);
+    uploadTemp->Unmap(0, nullptr);
+
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp;
+    UINT64 rowSize, totalBytes;
+    pDevice->GetCopyableFootprints(&desc, 0, 1, 0, &fp, nullptr, &rowSize, &totalBytes);
+
+    D3D12_TEXTURE_COPY_LOCATION srcLoc, destLoc;
+    srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    srcLoc.pResource = uploadTemp;
+    srcLoc.PlacedFootprint = fp;
+
+    destLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    destLoc.pResource = pResource;
+    destLoc.SubresourceIndex = 0;
+
+    pRenderer->pGfxCmdList->CopyTextureRegion(&destLoc, 0, 0, 0, &srcLoc, nullptr);
+}
+
 void transitionResource(Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
 {
 	D3D12_RESOURCE_BARRIER barrier = {};

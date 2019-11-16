@@ -1,8 +1,6 @@
 cbuffer WorldView : register(b0)
 {
     matrix MVP;
-    //matrix World;
-    //matrix View;
 };
 
 struct VS_INPUT

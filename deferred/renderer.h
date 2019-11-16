@@ -30,9 +30,9 @@ enum vsyncType
 
 struct Texture
 {
-    ID3D12Resource* pRes;
-    UINT            width;
-    UINT            height;
+    CComPtr<ID3D12Resource> pRes;
+    UINT                    width;
+    UINT                    height;
 };
 
 struct DescriptorHeap
@@ -100,4 +100,5 @@ void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue
 void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc);
 void submitCmdBuffer(Dx12Renderer* pRenderer);
 void present(Dx12Renderer* pRenderer, vsyncType vsync);
-Texture createTexture(ID3D12Device* pDevice);
+Texture createTexture(Dx12Renderer* pRenderer);
+bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT width, UINT height, UINT comp, DXGI_FORMAT format);
