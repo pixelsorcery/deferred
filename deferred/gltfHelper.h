@@ -18,7 +18,7 @@ static void processSemantics(const std::string& input, std::string& semantic, in
     }
 }
 
-int GetFormatSize(int id)
+static int GetFormatSize(int id)
 {
     switch (id)
     {
@@ -34,7 +34,7 @@ int GetFormatSize(int id)
 }
 
 // Returns dxgi format based on tinygltf type
-DXGI_FORMAT GetFormat(int type, int id)
+static DXGI_FORMAT GetFormat(int type, int id)
 {
     if (type == TINYGLTF_TYPE_SCALAR)
     {

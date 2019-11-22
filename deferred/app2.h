@@ -31,4 +31,5 @@ private:
     tinygltf::Model               boxModel;
     std::vector<ID3D12Resource*>  boxTextures;
     UINT                          indexBufSize;
+    GltfModel                     Model;
 };

@@ -273,6 +273,8 @@ bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void cons
     destLoc.SubresourceIndex = 0;
 
     pRenderer->pGfxCmdList->CopyTextureRegion(&destLoc, 0, 0, 0, &srcLoc, nullptr);
+
+    return true;
 }
 
 void transitionResource(Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
