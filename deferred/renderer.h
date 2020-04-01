@@ -8,31 +8,31 @@
 
 struct CmdSubmission
 {
-	CmdSubmission()
-		: completionFenceVal(0)
-	{
-	}
+    CmdSubmission()
+        : completionFenceVal(0)
+    {
+    }
 
-	CComPtr<ID3D12CommandAllocator> cmdAlloc;
+    CComPtr<ID3D12CommandAllocator> cmdAlloc;
 
-	// note 0 = not in flight
-	UINT64 completionFenceVal;
+    // note 0 = not in flight
+    UINT64 completionFenceVal;
 
-	// things to free once submission retires
-	std::vector<CComPtr<ID3D12DeviceChild>> deferredFrees;
+    // things to free once submission retires
+    std::vector<CComPtr<ID3D12DeviceChild>> deferredFrees;
 };
 
 enum vsyncType
 {
-	vsyncOn,
-	vsyncOff
+    vsyncOn,
+    vsyncOff
 };
 
 struct Texture
 {
     CComPtr<ID3D12Resource> pRes;
-    UINT                    width;
-    UINT                    height;
+    D3D12_RESOURCE_DESC        desc;
+
 };
 
 struct DescriptorHeap
@@ -58,38 +58,41 @@ struct DescriptorHeap
 
 struct Dx12Renderer
 {
-	CComPtr<IDXGISwapChain3>	       pSwapChain;
-	CComPtr<ID3D12Device>		       pDevice;
-	CComPtr<ID3D12CommandQueue>        pCommandQueue;
-	CComPtr<ID3D12Fence>		       pSubmitFence;
-	CComPtr<ID3D12GraphicsCommandList> pGfxCmdList;
+    CComPtr<IDXGISwapChain3>           pSwapChain;
+    CComPtr<ID3D12Device>              pDevice;
+    CComPtr<ID3D12CommandQueue>        pCommandQueue;
+    CComPtr<ID3D12Fence>               pSubmitFence;
+    CComPtr<ID3D12GraphicsCommandList> pGfxCmdList;
 #if defined(_DEBUG)
-	CComPtr<ID3D12Debug>               debugController;
+    CComPtr<ID3D12Debug>               debugController;
 #endif
-	HANDLE                        fenceEvent;
-	CComPtr<ID3D12DescriptorHeap> rtvHeap;
-	CComPtr<ID3D12Resource>       backbuf[renderer::swapChainBufferCount];
-	CComPtr<ID3D12Resource>       dsv;
-	D3D12_CPU_DESCRIPTOR_HANDLE   backbufDescHandle[renderer::swapChainBufferCount];
-	DXGI_FORMAT                   backbufFormat; //TODO set this correctly?
-	UINT                          backbufCurrent;
+    HANDLE                        fenceEvent;
+    CComPtr<ID3D12DescriptorHeap> rtvHeap;
+    CComPtr<ID3D12Resource>       backbuf[renderer::swapChainBufferCount];
+    CComPtr<ID3D12Resource>       dsv;
+    D3D12_CPU_DESCRIPTOR_HANDLE   backbufDescHandle[renderer::swapChainBufferCount];
+    DXGI_FORMAT                   backbufFormat; //TODO set this correctly?
+    UINT                          backbufCurrent;
 
-	D3D12_RECT     defaultScissor;
-	D3D12_VIEWPORT defaultViewport;
+    D3D12_RECT     defaultScissor;
+    D3D12_VIEWPORT defaultViewport;
 
-	CmdSubmission cmdSubmissions[renderer::submitQueueDepth];
-	UINT		  currentSubmission;
+    CmdSubmission cmdSubmissions[renderer::submitQueueDepth];
+    UINT          currentSubmission;
 
-	UINT64        submitCount;
+    UINT64        submitCount;
 
-	static constexpr DXGI_FORMAT colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-	static constexpr DXGI_FORMAT depthFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    UINT          cbvSrvUavDescriptorSize;
+    UINT          rtvDescriptorSize;
+
+    static constexpr DXGI_FORMAT colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    static constexpr DXGI_FORMAT depthFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
     CComPtr<ID3D12DescriptorHeap> mainDescriptorHeaps[renderer::swapChainBufferCount];
     CComPtr<ID3D12Resource> cbvSrvUavUploadHeaps[renderer::swapChainBufferCount];
     CComPtr<ID3D12Resource> cbvSrvUavHeaps[renderer::swapChainBufferCount];
 
-	~Dx12Renderer();
+    ~Dx12Renderer();
 };
 
 bool initDevice(Dx12Renderer* pRenderer, HWND hwnd);
@@ -100,5 +103,5 @@ void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue
 void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc);
 void submitCmdBuffer(Dx12Renderer* pRenderer);
 void present(Dx12Renderer* pRenderer, vsyncType vsync);
-Texture createTexture(Dx12Renderer* pRenderer);
+Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT width, UINT height, DXGI_FORMAT format);
 bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT width, UINT height, UINT comp, DXGI_FORMAT format);

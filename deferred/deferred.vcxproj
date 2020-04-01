@@ -131,6 +131,7 @@
   <ItemGroup>
     <ClInclude Include="app.h" />
     <ClInclude Include="app2.h" />
+    <ClInclude Include="dynArray.h" />
     <ClInclude Include="gltfHelper.h" />
     <ClInclude Include="heapMgr.h" />
     <ClInclude Include="heaps.h" />

@@ -50,7 +50,7 @@ ID3DBlob* compileSource(char const* source, char const* profile, char const* ent
 {
     ID3DBlob* code;
     ID3DBlob* errors;
-    HRESULT hr = D3DCompile(source, strlen(source), NULL, NULL, NULL, entrypt, profile, D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
+    HRESULT hr = D3DCompile(source, strlen(source), NULL, NULL, NULL, entrypt, profile, D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_DEBUG /*D3DCOMPILE_OPTIMIZATION_LEVEL3*/, 0,
         &code, &errors);
 
     assert(SUCCEEDED(hr));

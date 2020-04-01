@@ -1,0 +1,12 @@
+mesh : Mesh
+indexaccessor: count 36, type 5123
+mat : baseColorTexture
+mat : metallicFactor
+image name : CesiumLogoFlat.png
+  size : 262144
+  w/h : 256/256
+indices : 0
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+attribute : TEXCOORD_0

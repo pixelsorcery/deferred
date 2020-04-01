@@ -7,7 +7,7 @@
 
 struct GltfModel;
 
-bool loadModel(ID3D12Device* pDevice, GltfModel& model, const char* filename);
+bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename);
 
 struct GltfModel
 {
@@ -18,8 +18,16 @@ struct GltfModel
     std::vector<D3D12_INDEX_BUFFER_VIEW>      IndexBufViews;
     std::vector<CComPtr<ID3D12RootSignature>> RootSignatures;
     tinygltf::Model                           TinyGltfModel;
-    std::vector<CComPtr<ID3D12Resource>>      Textures;
+    std::vector<Texture>                      Textures;
     std::vector<UINT>                         IndexBufSize;
     UINT                                      NumPrimitives;
     UINT                                      NumTextures;
+    CComPtr<ID3D12DescriptorHeap>             TextureDescriptorHeap;
+    UINT                                      NumDescriptors;
+    D3D12_ROOT_DESCRIPTOR_TABLE               DescriptorTable;
+
+    ~GltfModel()
+    {
+        TextureDescriptorHeap.Release();
+    }
 };

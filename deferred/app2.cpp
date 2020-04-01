@@ -59,9 +59,9 @@ bool App2::init(HWND hwnd)
     ID3D12Device* pDevice = pRenderer->pDevice;
 
     // load model
-    loadModel(pDevice, Model, "..\\models\\BoxTextured.gltf");
+    loadModel(pRenderer.get(), Model, "..\\models\\BoxTextured.gltf");
 
-    // modelview matrix and descriptor heap with texture
+    // modelview matrix and texture
     D3D12_DESCRIPTOR_RANGE srvRange = {};
     srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     srvRange.NumDescriptors = 1;
@@ -84,14 +84,15 @@ bool App2::init(HWND hwnd)
     params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_STATIC_SAMPLER_DESC sampDesc = {};
-    sampDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+    sampDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     sampDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     sampDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     sampDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    sampDesc.MaxAnisotropy = 1;
-    sampDesc.MaxLOD = D3D12_FLOAT32_MAX;
+    sampDesc.MaxAnisotropy = 0;
     sampDesc.ShaderRegister = 0;
     sampDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    sampDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    sampDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 
     D3D12_ROOT_SIGNATURE_DESC rootSigDesc = {};
     rootSigDesc.NumParameters = 2;
@@ -126,15 +127,16 @@ bool App2::init(HWND hwnd)
     UINT numInputElements = 0;
     D3D12_INPUT_ELEMENT_DESC inputElementDescs[D3D12_STANDARD_VERTEX_ELEMENT_COUNT];
     vector<string> semanticNames;
-    for (int i = 0; i < boxModel.meshes.size(); i++)
+    tinygltf::Model* pModel = &Model.TinyGltfModel;
+    for (int i = 0; i < pModel->meshes.size(); i++)
     {
-        for (int j = 0; j < boxModel.meshes[i].primitives.size(); j++)
+        for (int j = 0; j < pModel->meshes[i].primitives.size(); j++)
         {
-            auto it = boxModel.meshes[i].primitives[j].attributes.begin();
-            semanticNames.resize(boxModel.meshes[i].primitives[j].attributes.size());
-            for (int k = 0; k < boxModel.meshes[i].primitives[j].attributes.size(); k++)
+            auto it = pModel->meshes[i].primitives[j].attributes.begin();
+            semanticNames.resize(pModel->meshes[i].primitives[j].attributes.size());
+            for (int k = 0; k < pModel->meshes[i].primitives[j].attributes.size(); k++)
             {
-                tinygltf::Accessor accessor = boxModel.accessors[it->second];
+                tinygltf::Accessor accessor = pModel->accessors[it->second];
                 int index = 0;
                 processSemantics(it->first, semanticNames[k], index);
 
@@ -150,7 +152,7 @@ bool App2::init(HWND hwnd)
                 numInputElements++;
 
                 // create buffer
-                tinygltf::BufferView gltfBufView = boxModel.bufferViews[accessor.bufferView];
+                tinygltf::BufferView gltfBufView = pModel->bufferViews[accessor.bufferView];
                 ID3D12Resource* pBuf = nullptr;
                 pBuf = createBuffer(pRenderer.get(), D3D12_HEAP_TYPE_DEFAULT, gltfBufView.byteLength, D3D12_RESOURCE_STATE_COPY_DEST);
                 boxBuffers.push_back(pBuf);
@@ -158,7 +160,7 @@ bool App2::init(HWND hwnd)
                 // upload buffer
                 uploadBuffer(pRenderer.get(),
                     boxBuffers.back(),
-                    &boxModel.buffers[gltfBufView.buffer].data.at(gltfBufView.byteOffset + accessor.byteOffset),
+                    &pModel->buffers[gltfBufView.buffer].data.at(gltfBufView.byteOffset + accessor.byteOffset),
                     (UINT)gltfBufView.byteLength,
                     0);         
 
@@ -173,27 +175,27 @@ bool App2::init(HWND hwnd)
             }
 
             // load index buffer
-            UINT accessorIdx = boxModel.meshes[i].primitives[j].indices;
-            UINT bufViewIdx = boxModel.accessors[accessorIdx].bufferView;
-            tinygltf::BufferView gltfIdxBufView = boxModel.bufferViews[bufViewIdx];
+            UINT accessorIdx = pModel->meshes[i].primitives[j].indices;
+            UINT bufViewIdx = pModel->accessors[accessorIdx].bufferView;
+            tinygltf::BufferView gltfIdxBufView = pModel->bufferViews[bufViewIdx];
 
             pIndexBuffer = createBuffer(pRenderer.get(), D3D12_HEAP_TYPE_DEFAULT, gltfIdxBufView.byteLength, D3D12_RESOURCE_STATE_COPY_DEST);
 
             uploadBuffer(pRenderer.get(),
                 pIndexBuffer,
-                &boxModel.buffers[gltfIdxBufView.buffer].data[gltfIdxBufView.byteOffset + boxModel.accessors[accessorIdx].byteOffset],
+                &pModel->buffers[gltfIdxBufView.buffer].data[gltfIdxBufView.byteOffset + pModel->accessors[accessorIdx].byteOffset],
                 (UINT)gltfIdxBufView.byteLength,
                 0);
 
             transitionResource(pRenderer.get(), pIndexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER);
 
-            UINT stride = GetFormatSize(boxModel.accessors[accessorIdx].componentType);
+            UINT stride = GetFormatSize(pModel->accessors[accessorIdx].componentType);
             indexBufView = {};
             indexBufView.BufferLocation = pIndexBuffer->GetGPUVirtualAddress();
             indexBufView.Format = (gltfIdxBufView.byteStride == 4) ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
             indexBufView.SizeInBytes = static_cast<UINT>(gltfIdxBufView.byteLength);
 
-            indexBufSize = static_cast<UINT>(boxModel.accessors[accessorIdx].count);
+            indexBufSize = static_cast<UINT>(pModel->accessors[accessorIdx].count);
         }
     }
 
@@ -202,7 +204,7 @@ bool App2::init(HWND hwnd)
     boxPsoDesc.VS = bytecodeFromBlob(boxVs);
     boxPsoDesc.PS = bytecodeFromBlob(boxPs);
     boxPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-    boxPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    boxPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
     boxPsoDesc.RasterizerState.DepthClipEnable = TRUE;
     boxPsoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     boxPsoDesc.SampleMask = UINT_MAX;
@@ -217,7 +219,7 @@ bool App2::init(HWND hwnd)
     hr = pDevice->CreateGraphicsPipelineState(&boxPsoDesc, IID_PPV_ARGS(&boxPipeline));
 
 #if defined(_DEBUG)
-    dbgModel(boxModel);
+    dbgModel(*pModel);
 #endif 
 
     if (S_OK != hr)
@@ -227,13 +229,9 @@ bool App2::init(HWND hwnd)
     }
 
     // create a descriptor table for cbv and srv
-    D3D12_ROOT_DESCRIPTOR_TABLE cbvDescriptorTable;
-    cbvDescriptorTable.NumDescriptorRanges = cbvRange.NumDescriptors;
-    cbvDescriptorTable.pDescriptorRanges = &cbvRange;
-
-    D3D12_ROOT_DESCRIPTOR_TABLE srvDescriptorTable;
-    srvDescriptorTable.NumDescriptorRanges = srvRange.NumDescriptors;
-    srvDescriptorTable.pDescriptorRanges = &srvRange;
+    D3D12_DESCRIPTOR_RANGE descRanges[2] = { cbvRange, srvRange };
+    Model.DescriptorTable.NumDescriptorRanges = cbvRange.NumDescriptors + srvRange.NumDescriptors;
+    Model.DescriptorTable.pDescriptorRanges = descRanges;
 
     for (int i = 0; i < renderer::swapChainBufferCount; ++i)
     {
@@ -247,6 +245,8 @@ bool App2::init(HWND hwnd)
             ErrorMsg("Descriptor heap creation failed.");
             return false;
         }
+
+        pRenderer->mainDescriptorHeaps[i]->SetName(L"Main Descriptor Heap");
     }
 
     for (int i = 0; i < renderer::swapChainBufferCount; ++i)
@@ -274,6 +274,7 @@ void App2::drawFrame()
     // clear
     HRESULT hr = S_OK;
 
+    ID3D12Device* pDevice = pRenderer->pDevice;
     ID3D12GraphicsCommandList* pCmdList = pRenderer->pGfxCmdList;
 
     // set rt
@@ -290,8 +291,17 @@ void App2::drawFrame()
     // set root sig
     pCmdList->SetGraphicsRootSignature(boxRootSignature);
 
-    // Set pipeline
+    // set pipeline
     pCmdList->SetPipelineState(boxPipeline);
+
+    D3D12_CPU_DESCRIPTOR_HANDLE dest = pRenderer->mainDescriptorHeaps[pRenderer->backbufCurrent]->GetCPUDescriptorHandleForHeapStart();
+    dest.ptr += pRenderer->cbvSrvUavDescriptorSize;
+    D3D12_CPU_DESCRIPTOR_HANDLE src = Model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+
+    D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart = pRenderer->mainDescriptorHeaps[pRenderer->backbufCurrent]->GetGPUDescriptorHandleForHeapStart();
+    srvTableStart.ptr += pRenderer->cbvSrvUavDescriptorSize;
+    // copy descriptor to heap
+    pDevice->CopyDescriptorsSimple(1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     // update model view projection matrix
     glm::mat4 model = glm::mat4(1.0);
@@ -309,17 +319,12 @@ void App2::drawFrame()
     glm::mat4 mvp = proj * view * model;
 
     D3D12_RANGE range = {};
-    range.Begin = 0;
-    range.End = 0;
     UINT* pData;
+
     pRenderer->cbvSrvUavUploadHeaps[pRenderer->backbufCurrent]->Map(0, &range, reinterpret_cast<void**>(&pData));
-
     memcpy(pData, &mvp, sizeof(mvp));
-
     transitionResource(pRenderer.get(), pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-
     pCmdList->CopyResource(pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], pRenderer->cbvSrvUavUploadHeaps[pRenderer->backbufCurrent]);
-
     transitionResource(pRenderer.get(), pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
     // set prim topology
@@ -329,6 +334,8 @@ void App2::drawFrame()
 
     pCmdList->SetDescriptorHeaps(1, &pRenderer->mainDescriptorHeaps[pRenderer->backbufCurrent].p);
     pCmdList->SetGraphicsRootDescriptorTable(0, pRenderer->mainDescriptorHeaps[pRenderer->backbufCurrent]->GetGPUDescriptorHandleForHeapStart());
+    pCmdList->SetGraphicsRootDescriptorTable(1, srvTableStart);
+
     // draw box
     pCmdList->DrawIndexedInstanced(indexBufSize, 1, 0, 0, 0);
 
