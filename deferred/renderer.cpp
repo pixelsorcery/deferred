@@ -174,10 +174,46 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     pRenderer->cbvSrvUavDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     pRenderer->rtvDescriptorSize       = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     pRenderer->rtvDescriptorSize       = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+
+    // create gpu descriptor heaps
+    for (int i = 0; i < renderer::swapChainBufferCount; ++i)
+    {
+        D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+        heapDesc.NumDescriptors = 2;
+        heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        hr = pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pRenderer->mainDescriptorHeaps[i]));
+        if (FAILED(hr))
+        {
+            ErrorMsg("Descriptor heap creation failed.");
+            return false;
+        }
+
+        pRenderer->mainDescriptorHeaps[i]->SetName(L"Main_CBV_SRV_UAV_Descriptor_Heap");
+    }
+
+    // create cb upload heaps
+    for (int i = 0; i < renderer::swapChainBufferCount; ++i)
+    {
+        ID3D12Resource* cbvSrvUploadHeap;
+        ID3D12Resource* cbvSrvHeap;
+
+        cbvSrvUploadHeap = createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, 512, D3D12_RESOURCE_STATE_GENERIC_READ);
+        cbvSrvHeap = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, 512, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+        pRenderer->cbvSrvUavUploadHeaps[i].Attach(cbvSrvUploadHeap);
+        pRenderer->cbvSrvUavHeaps[i].Attach(cbvSrvHeap);
+
+        D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+        cbvDesc.BufferLocation = cbvSrvHeap->GetGPUVirtualAddress();
+        cbvDesc.SizeInBytes = (sizeof(16 * 4) + 255) & ~255;    // CB size is required to be 256-byte aligned.
+        pDevice->CreateConstantBufferView(&cbvDesc, pRenderer->mainDescriptorHeaps[i]->GetCPUDescriptorHandleForHeapStart());
+    }
+
     return true;
 }
 
-ID3D12Resource* createBuffer(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states)
+ID3D12Resource* createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states)
 {
     HRESULT hr = S_OK;
 
@@ -279,7 +315,7 @@ bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void cons
     return true;
 }
 
-void transitionResource(Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
+void transitionResource(const Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
 {
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
