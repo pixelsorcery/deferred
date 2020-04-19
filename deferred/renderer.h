@@ -13,7 +13,8 @@ struct CmdSubmission
     {
     }
 
-    CComPtr<ID3D12CommandAllocator> cmdAlloc;
+    CComPtr<ID3D12CommandAllocator>    cmdAlloc;
+    CComPtr<ID3D12GraphicsCommandList> pGfxCmdList;
 
     // note 0 = not in flight
     UINT64 completionFenceVal;
@@ -61,7 +62,6 @@ struct Dx12Renderer
     CComPtr<ID3D12Device>              pDevice;
     CComPtr<ID3D12CommandQueue>        pCommandQueue;
     CComPtr<ID3D12Fence>               pSubmitFence;
-    CComPtr<ID3D12GraphicsCommandList> pGfxCmdList;
 #if defined(_DEBUG)
     CComPtr<ID3D12Debug>               debugController;
     CComPtr<ID3D12DebugDevice>         debugDevice;
@@ -95,13 +95,15 @@ struct Dx12Renderer
     CComPtr<ID3D12Resource> cbvSrvUavUploadHeaps[renderer::swapChainBufferCount];
     CComPtr<ID3D12Resource> cbvSrvUavHeaps[renderer::swapChainBufferCount];
 
+    CComPtr<ID3D12GraphicsCommandList> GetCurrentCmdList(){ return cmdSubmissions[currentSubmission].pGfxCmdList; };
+
     ~Dx12Renderer();
 };
 
 bool initDevice(Dx12Renderer* pRenderer, HWND hwnd);
 CComPtr<ID3D12Resource> createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states);
 bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT rowPitch, UINT slicePitch);
-void transitionResource(const Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
+void transitionResource(Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
 void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue);
 void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc);
 void submitCmdBuffer(Dx12Renderer* pRenderer);

@@ -320,10 +320,10 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     return res;
 }
 
-void drawModel(const Dx12Renderer* pRenderer, GltfModel& model)
+void drawModel(Dx12Renderer* pRenderer, GltfModel& model)
 {
     ID3D12Device* pDevice = pRenderer->pDevice;
-    ID3D12GraphicsCommandList* pCmdList = pRenderer->pGfxCmdList;
+    ID3D12GraphicsCommandList* pCmdList = pRenderer->cmdSubmissions[pRenderer->currentSubmission].pGfxCmdList;
 
     // set root sig
     pCmdList->SetGraphicsRootSignature(model.pRootSignature);
@@ -365,11 +365,11 @@ void drawModel(const Dx12Renderer* pRenderer, GltfModel& model)
     D3D12_RANGE range = {};
     UINT* pData;
 
-    pRenderer->cbvSrvUavUploadHeaps[pRenderer->backbufCurrent]->Map(0, &range, reinterpret_cast<void**>(&pData));
+    pRenderer->cbvSrvUavUploadHeaps[pRenderer->currentSubmission]->Map(0, &range, reinterpret_cast<void**>(&pData));
     memcpy(pData, &mvp, sizeof(mvp));
-    transitionResource(pRenderer, pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-    pCmdList->CopyResource(pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], pRenderer->cbvSrvUavUploadHeaps[pRenderer->backbufCurrent]);
-    transitionResource(pRenderer, pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    transitionResource(pRenderer, pRenderer->cbvSrvUavHeaps[pRenderer->currentSubmission], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+    pCmdList->CopyResource(pRenderer->cbvSrvUavHeaps[pRenderer->currentSubmission], pRenderer->cbvSrvUavUploadHeaps[pRenderer->currentSubmission]);
+    transitionResource(pRenderer, pRenderer->cbvSrvUavHeaps[pRenderer->currentSubmission], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
     pCmdList->SetDescriptorHeaps(1, &pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].p);
     pCmdList->SetGraphicsRootDescriptorTable(0, pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetGPUDescriptorHandleForHeapStart());

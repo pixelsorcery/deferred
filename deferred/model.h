@@ -8,7 +8,7 @@
 struct GltfModel;
 
 bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename);
-void drawModel(const Dx12Renderer* pRenderer, GltfModel& model);
+void drawModel(Dx12Renderer* pRenderer, GltfModel& model);
 
 struct GltfModel
 {

@@ -126,7 +126,7 @@ void App::drawFrame()
     // clear
     HRESULT hr = S_OK;
 
-    ID3D12GraphicsCommandList* pCmdList = pRenderer->pGfxCmdList;
+    ID3D12GraphicsCommandList* pCmdList = pRenderer->cmdSubmissions[pRenderer->currentSubmission].pGfxCmdList;
 
     // set rt
     pCmdList->OMSetRenderTargets(1, &pRenderer->backbufDescHandle[pRenderer->backbufCurrent], false, 0);

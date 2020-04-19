@@ -68,21 +68,21 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 
     for (UINT i = 0; i < renderer::submitQueueDepth; i++)
     {
+        pRenderer->currentSubmission = 0;
         CmdSubmission* sub = &pRenderer->cmdSubmissions[i];
 
         // command allocator
         hr = pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&sub->cmdAlloc));
-        if (FAILED(hr)) { return 0; }
+        if (FAILED(hr)) { ErrorMsg("Couldn't create command allocator"); }
         sub->cmdAlloc->SetName(L"cmd_allocator");
+
+        // command list
+        hr = pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, sub->cmdAlloc, nullptr, IID_PPV_ARGS(&sub->pGfxCmdList));
+        if (FAILED(hr)) { ErrorMsg("Couldn't create command list"); }
+        sub->cmdAlloc->SetName(L"cmd_list");
     }
 
-    // todo create some more...
-    hr = pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pRenderer->cmdSubmissions[0].cmdAlloc, nullptr, IID_PPV_ARGS(&pRenderer->pGfxCmdList));
-    if (FAILED(hr)) { ErrorMsg("Couldn't create command list"); }
-
-    pRenderer->pGfxCmdList->SetName(L"gfx_cmd_list");
-
-    ID3D12CommandList* pGfxCmdList = pRenderer->pGfxCmdList;
+    ID3D12CommandList* pGfxCmdList = pRenderer->cmdSubmissions[pRenderer->currentSubmission].pGfxCmdList;
 
     // create swapchain
     CComPtr<IDXGISwapChain> pSwapChain;
@@ -317,14 +317,14 @@ bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void cons
     destLoc.pResource = pResource;
     destLoc.SubresourceIndex = 0;
 
-    pRenderer->pGfxCmdList->CopyTextureRegion(&destLoc, 0, 0, 0, &srcLoc, nullptr);
-    pRenderer->cmdSubmissions[pRenderer->backbufCurrent].deferredFrees.push_back((ID3D12DeviceChild*)uploadTemp);
+    pRenderer->GetCurrentCmdList()->CopyTextureRegion(&destLoc, 0, 0, 0, &srcLoc, nullptr);
+    pRenderer->cmdSubmissions[pRenderer->currentSubmission].deferredFrees.push_back((ID3D12DeviceChild*)uploadTemp);
     uploadTemp.Release();
 
     return true;
 }
 
-void transitionResource(const Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
+void transitionResource(Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
 {
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -334,7 +334,7 @@ void transitionResource(const Dx12Renderer* pRenderer, ID3D12Resource* res, D3D1
     barrier.Transition.StateAfter = after;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-    pRenderer->pGfxCmdList->ResourceBarrier(1, &barrier);
+    pRenderer->GetCurrentCmdList()->ResourceBarrier(1, &barrier);
 }
 
 bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT rowPitch, UINT slicePitch)
@@ -377,7 +377,7 @@ bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const
     D3D12_RANGE written = { 0, (SIZE_T)totalBytes };
     uploadTemp->Unmap(0, &written);
 
-    pRenderer->pGfxCmdList->CopyResource(pResource, uploadTemp);
+    pRenderer->GetCurrentCmdList()->CopyResource(pResource, uploadTemp);
 
     pRenderer->cmdSubmissions[pRenderer->currentSubmission].deferredFrees.push_back((ID3D12DeviceChild*)uploadTemp);
     uploadTemp.Release();
@@ -417,7 +417,7 @@ void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue
 void submitCmdBuffer(Dx12Renderer* pRenderer)
 {
     HRESULT hr = S_OK;
-    ID3D12GraphicsCommandList* const pCmdList = pRenderer->pGfxCmdList;
+    CComPtr<ID3D12GraphicsCommandList> const pCmdList = pRenderer->GetCurrentCmdList();
     hr = pCmdList->Close();
 
     if (FAILED(hr))
@@ -426,7 +426,7 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
         return;
     }
 
-    ID3D12CommandList* ppCmds[] = { pRenderer->pGfxCmdList };
+    ID3D12CommandList* ppCmds[] = { pRenderer->GetCurrentCmdList() };
     pRenderer->pCommandQueue->ExecuteCommandLists(1, ppCmds);
 
     // Insert a signal event for current frame so we can wait for it to be done
@@ -458,7 +458,7 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
     pSub->completionFenceVal = ++pRenderer->submitCount;
 
     // switch cmd list over
-    hr = pRenderer->pGfxCmdList->Reset(pRenderer->cmdSubmissions[nextSubmissionIdx].cmdAlloc, nullptr);
+    hr = pRenderer->GetCurrentCmdList()->Reset(pRenderer->cmdSubmissions[nextSubmissionIdx].cmdAlloc, nullptr);
     if (FAILED(hr)) 
     { 
         ErrorMsg("gfxCmdList->Reset(cmdSubmission[next_submission].cmdAlloc, nullptr) failed.");  

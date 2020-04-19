@@ -31,16 +31,16 @@ void App2::drawFrame()
     HRESULT hr = S_OK;
 
     ID3D12Device* pDevice = pRenderer->pDevice;
-    ID3D12GraphicsCommandList* pCmdList = pRenderer->pGfxCmdList;
+    ID3D12GraphicsCommandList* pCmdList = pRenderer->cmdSubmissions[pRenderer->currentSubmission].pGfxCmdList;
 
     // set rt
-    pCmdList->OMSetRenderTargets(1, &pRenderer->backbufDescHandle[pRenderer->backbufCurrent], false, 0);
+    pCmdList->OMSetRenderTargets(1, &pRenderer->backbufDescHandle[pRenderer->currentSubmission], false, 0);
 
-    transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->currentSubmission], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
     // clear rt
     float clearCol[4] = { 0.4f, 0.4f, 0.6f, 1.0f };
-    pCmdList->ClearRenderTargetView(pRenderer->backbufDescHandle[pRenderer->backbufCurrent], clearCol, 0, nullptr);
+    pCmdList->ClearRenderTargetView(pRenderer->backbufDescHandle[pRenderer->currentSubmission], clearCol, 0, nullptr);
     pCmdList->RSSetViewports(1, &pRenderer->defaultViewport);
     pCmdList->RSSetScissorRects(1, &pRenderer->defaultScissor);
 
@@ -48,7 +48,7 @@ void App2::drawFrame()
     drawModel(pRenderer.get(), Model);
 
     // exec cmd buffer
-    transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+    transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->currentSubmission], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
     submitCmdBuffer(pRenderer.get());
 
     // present
