@@ -12,7 +12,7 @@ void drawModel(const Dx12Renderer* pRenderer, GltfModel& model);
 
 struct GltfModel
 {
-    std::vector<ID3D12Resource*>              pBuffers;
+    std::vector<CComPtr<ID3D12Resource>>      pBuffers;
     std::vector<D3D12_VERTEX_BUFFER_VIEW>     BufferViews;
     std::vector<CComPtr<ID3D12Resource>>      IndexBuffers;
     std::vector<D3D12_INDEX_BUFFER_VIEW>      IndexBufViews;
@@ -29,8 +29,7 @@ struct GltfModel
     CComPtr<ID3D12PipelineState>              pModelPipeline;
     CComPtr<ID3DBlob>                         pModelVs, pModelPs;
 
-    ~GltfModel()
-    {
-        TextureDescriptorHeap.Release();
-    }
+    //~GltfModel()
+    //{
+    //}
 };

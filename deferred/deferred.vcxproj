@@ -141,6 +141,7 @@
     <ClInclude Include="settings.h" />
     <ClInclude Include="shaders.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="strings.h" />
     <ClInclude Include="tiny_gltf.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>

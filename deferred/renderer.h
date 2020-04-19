@@ -31,8 +31,7 @@ enum vsyncType
 struct Texture
 {
     CComPtr<ID3D12Resource> pRes;
-    D3D12_RESOURCE_DESC        desc;
-
+    D3D12_RESOURCE_DESC     desc;
 };
 
 struct DescriptorHeap
@@ -65,6 +64,7 @@ struct Dx12Renderer
     CComPtr<ID3D12GraphicsCommandList> pGfxCmdList;
 #if defined(_DEBUG)
     CComPtr<ID3D12Debug>               debugController;
+    CComPtr<ID3D12DebugDevice>         debugDevice;
 #endif
     HANDLE                        fenceEvent;
     CComPtr<ID3D12DescriptorHeap> rtvHeap;
@@ -88,7 +88,10 @@ struct Dx12Renderer
     static constexpr DXGI_FORMAT colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     static constexpr DXGI_FORMAT depthFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
-    CComPtr<ID3D12DescriptorHeap> mainDescriptorHeaps[renderer::swapChainBufferCount];
+    // initial heap sizes
+    int heapSizes[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES] = { 128, 64, 64, 64 };
+
+    CComPtr<ID3D12DescriptorHeap> mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
     CComPtr<ID3D12Resource> cbvSrvUavUploadHeaps[renderer::swapChainBufferCount];
     CComPtr<ID3D12Resource> cbvSrvUavHeaps[renderer::swapChainBufferCount];
 
@@ -96,7 +99,7 @@ struct Dx12Renderer
 };
 
 bool initDevice(Dx12Renderer* pRenderer, HWND hwnd);
-ID3D12Resource* createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states);
+CComPtr<ID3D12Resource> createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states);
 bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT rowPitch, UINT slicePitch);
 void transitionResource(const Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
 void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue);

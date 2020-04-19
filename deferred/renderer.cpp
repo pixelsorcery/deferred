@@ -2,6 +2,7 @@
 #include "renderer.h"
 #include "util.h"
 #include "settings.h"
+#include "strings.h"
 
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d12.lib")
@@ -47,6 +48,8 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         return false;
     }
 
+    pRenderer->pDevice->SetName(L"main_device");
+
     ID3D12Device* pDevice = pRenderer->pDevice;
 
     D3D12_COMMAND_QUEUE_DESC commandQueueDesc = {
@@ -70,10 +73,14 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         // command allocator
         hr = pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&sub->cmdAlloc));
         if (FAILED(hr)) { return 0; }
+        sub->cmdAlloc->SetName(L"cmd_allocator");
     }
 
+    // todo create some more...
     hr = pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pRenderer->cmdSubmissions[0].cmdAlloc, nullptr, IID_PPV_ARGS(&pRenderer->pGfxCmdList));
     if (FAILED(hr)) { ErrorMsg("Couldn't create command list"); }
+
+    pRenderer->pGfxCmdList->SetName(L"gfx_cmd_list");
 
     ID3D12CommandList* pGfxCmdList = pRenderer->pGfxCmdList;
 
@@ -176,10 +183,10 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     pRenderer->rtvDescriptorSize       = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
     // create gpu descriptor heaps
-    for (int i = 0; i < renderer::swapChainBufferCount; ++i)
+    for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++)
     {
         D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-        heapDesc.NumDescriptors = 2;
+        heapDesc.NumDescriptors = pRenderer->heapSizes[i];
         heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
         heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         hr = pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pRenderer->mainDescriptorHeaps[i]));
@@ -189,20 +196,20 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
             return false;
         }
 
-        pRenderer->mainDescriptorHeaps[i]->SetName(L"Main_CBV_SRV_UAV_Descriptor_Heap");
+        pRenderer->mainDescriptorHeaps[i]->SetName(heapTypeStrings[i]);
     }
 
     // create cb upload heaps
     for (int i = 0; i < renderer::swapChainBufferCount; ++i)
     {
-        ID3D12Resource* cbvSrvUploadHeap;
-        ID3D12Resource* cbvSrvHeap;
+        CComPtr<ID3D12Resource> cbvSrvUploadHeap;
+        CComPtr<ID3D12Resource> cbvSrvHeap;
 
         cbvSrvUploadHeap = createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, 512, D3D12_RESOURCE_STATE_GENERIC_READ);
         cbvSrvHeap = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, 512, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
-        pRenderer->cbvSrvUavUploadHeaps[i].Attach(cbvSrvUploadHeap);
-        pRenderer->cbvSrvUavHeaps[i].Attach(cbvSrvHeap);
+        pRenderer->cbvSrvUavUploadHeaps[i] = cbvSrvUploadHeap;
+        pRenderer->cbvSrvUavHeaps[i] = cbvSrvHeap;
 
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
         cbvDesc.BufferLocation = cbvSrvHeap->GetGPUVirtualAddress();
@@ -213,13 +220,13 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     return true;
 }
 
-ID3D12Resource* createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states)
+CComPtr<ID3D12Resource> createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states)
 {
     HRESULT hr = S_OK;
 
     D3D12_HEAP_PROPERTIES heapProps = {};
     D3D12_RESOURCE_DESC desc = {};
-    ID3D12Resource* resource;
+    CComPtr<ID3D12Resource> resource;
 
     heapProps.Type = heapType;
     heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -287,7 +294,7 @@ bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void cons
 
     // create upload buffer
     CComPtr<ID3D12Resource> uploadTemp;
-    uploadTemp.Attach(createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, width * height * comp, D3D12_RESOURCE_STATE_GENERIC_READ));
+    uploadTemp = createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, width * height * comp, D3D12_RESOURCE_STATE_GENERIC_READ);
     uploadTemp->SetName(L"Temp Upload Texture");
 
     unsigned char* pBufData;
@@ -312,6 +319,8 @@ bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void cons
 
     pRenderer->pGfxCmdList->CopyTextureRegion(&destLoc, 0, 0, 0, &srcLoc, nullptr);
     pRenderer->cmdSubmissions[pRenderer->backbufCurrent].deferredFrees.push_back((ID3D12DeviceChild*)uploadTemp);
+    uploadTemp.Release();
+
     return true;
 }
 
@@ -341,7 +350,7 @@ bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const
 
     // create upload buffer
     CComPtr<ID3D12Resource> uploadTemp;
-    uploadTemp.Attach(createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, totalBytes, D3D12_RESOURCE_STATE_GENERIC_READ));
+    uploadTemp = createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, totalBytes, D3D12_RESOURCE_STATE_GENERIC_READ);
 
     // map the upload resource
     BYTE* pBufData;
@@ -371,6 +380,7 @@ bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const
     pRenderer->pGfxCmdList->CopyResource(pResource, uploadTemp);
 
     pRenderer->cmdSubmissions[pRenderer->currentSubmission].deferredFrees.push_back((ID3D12DeviceChild*)uploadTemp);
+    uploadTemp.Release();
 
     return true;
 }
@@ -473,8 +483,14 @@ void present(Dx12Renderer* pRenderer, vsyncType vsync)
 
 Dx12Renderer::~Dx12Renderer()
 {
+    // make sure everything is done on GPU before destroying device
     for (int i = 0; i < renderer::submitQueueDepth; i++)
     {
         waitOnFence(this, pSubmitFence, cmdSubmissions[i].completionFenceVal);
     }
+#if defined(_DEBUG)
+    //CComPtr<ID3D12DebugDevice> debugDevice;
+    //HRESULT hr = pDevice->QueryInterface(__uuidof(ID3D12DebugDevice1), reinterpret_cast<void**>(&debugDevice));
+    //debugDevice->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL);
+#endif
 }

@@ -82,7 +82,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         D3D12_HEAP_FLAGS flags = D3D12_HEAP_FLAG_NONE;
         D3D12_RESOURCE_STATES resourceState = D3D12_RESOURCE_STATE_COPY_DEST;
 
-        ID3D12Resource* textureResource = nullptr;
+        CComPtr<ID3D12Resource> textureResource = nullptr;
         hr = pDevice->CreateCommittedResource(&heapProps, flags, &resourceDesc, resourceState, nullptr, __uuidof(ID3D12Resource), (void**)&textureResource);
 
         if (FAILED(hr))
@@ -232,9 +232,10 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
                 // create buffer
                 tinygltf::BufferView gltfBufView = pModel->bufferViews[accessor.bufferView];
-                ID3D12Resource* pBuf = nullptr;
+                CComPtr<ID3D12Resource> pBuf = nullptr;
                 pBuf = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, gltfBufView.byteLength, D3D12_RESOURCE_STATE_COPY_DEST);
                 model.pBuffers.push_back(pBuf);
+                pBuf->SetName(L"model_vtx_buffer");
 
                 // upload buffer
                 uploadBuffer(pRenderer,
@@ -260,7 +261,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
             CComPtr<ID3D12Resource> indexBuffer;
             indexBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, gltfIdxBufView.byteLength, D3D12_RESOURCE_STATE_COPY_DEST);
-
+            indexBuffer->SetName(L"model_index_buffer");
             model.IndexBuffers.push_back(indexBuffer);
 
             uploadBuffer(pRenderer,
@@ -278,7 +279,6 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
             indexBufView.SizeInBytes = static_cast<UINT>(gltfIdxBufView.byteLength);
 
             model.IndexBufViews.push_back(indexBufView);
-
             model.IndexBufSizes.push_back(static_cast<UINT>(pModel->accessors[accessorIdx].count));
         }
     }
@@ -288,7 +288,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     boxPsoDesc.VS = bytecodeFromBlob(model.pModelVs);
     boxPsoDesc.PS = bytecodeFromBlob(model.pModelPs);
     boxPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-    boxPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
+    boxPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
     boxPsoDesc.RasterizerState.DepthClipEnable = TRUE;
     boxPsoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     boxPsoDesc.SampleMask = UINT_MAX;
@@ -331,11 +331,11 @@ void drawModel(const Dx12Renderer* pRenderer, GltfModel& model)
     // set pipeline
     pCmdList->SetPipelineState(model.pModelPipeline);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE dest = pRenderer->mainDescriptorHeaps[pRenderer->backbufCurrent]->GetCPUDescriptorHandleForHeapStart();
+    D3D12_CPU_DESCRIPTOR_HANDLE dest = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetCPUDescriptorHandleForHeapStart();
     dest.ptr += pRenderer->cbvSrvUavDescriptorSize;
     D3D12_CPU_DESCRIPTOR_HANDLE src = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
-    D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart = pRenderer->mainDescriptorHeaps[pRenderer->backbufCurrent]->GetGPUDescriptorHandleForHeapStart();
+    D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetGPUDescriptorHandleForHeapStart();
     srvTableStart.ptr += pRenderer->cbvSrvUavDescriptorSize;
     // copy descriptor to heap
     pDevice->CopyDescriptorsSimple(1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -347,15 +347,18 @@ void drawModel(const Dx12Renderer* pRenderer, GltfModel& model)
         glm::vec3(0.0f, 0.0f, 0.0f),
         glm::vec3(0.0f, 1.0f, 0.0f));
 
-
     glm::mat4 proj = glm::perspective(glm::radians(45.0f),
         (float)renderer::width / (float)renderer::height,
         0.1f,
         100.0f);
+
     // start rotation
     static float angle = 0.0f;
     angle += 0.01f;
     modelMatrix = glm::rotate(modelMatrix, angle, glm::vec3(1.0f, 1.0f, 1.0f));
+
+    // scale
+    modelMatrix = glm::scale(modelMatrix, glm::vec3(0.005f, 0.005f, 0.005f));
 
     glm::mat4 mvp = proj * view * modelMatrix;
 
@@ -368,17 +371,18 @@ void drawModel(const Dx12Renderer* pRenderer, GltfModel& model)
     pCmdList->CopyResource(pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], pRenderer->cbvSrvUavUploadHeaps[pRenderer->backbufCurrent]);
     transitionResource(pRenderer, pRenderer->cbvSrvUavHeaps[pRenderer->backbufCurrent], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
+    pCmdList->SetDescriptorHeaps(1, &pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].p);
+    pCmdList->SetGraphicsRootDescriptorTable(0, pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetGPUDescriptorHandleForHeapStart());
+    pCmdList->SetGraphicsRootDescriptorTable(1, srvTableStart);
+
+    pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
     // draw all meshes
     for (int i = 0; i < model.IndexBuffers.size(); i++)
     {
-        // set prim topology
-        pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        // set buffers
         pCmdList->IASetVertexBuffers(0, static_cast<UINT>(model.pBuffers.size()), &model.BufferViews[i]);
         pCmdList->IASetIndexBuffer(&model.IndexBufViews[i]);
-
-        pCmdList->SetDescriptorHeaps(1, &pRenderer->mainDescriptorHeaps[pRenderer->backbufCurrent].p);
-        pCmdList->SetGraphicsRootDescriptorTable(0, pRenderer->mainDescriptorHeaps[pRenderer->backbufCurrent]->GetGPUDescriptorHandleForHeapStart());
-        pCmdList->SetGraphicsRootDescriptorTable(1, srvTableStart);
 
         // draw box
         pCmdList->DrawIndexedInstanced(model.IndexBufSizes[i], 1, 0, 0, 0);

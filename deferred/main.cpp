@@ -29,12 +29,12 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         return 0;
 
     case WM_CLOSE:
-		PostQuitMessage(0);
-		return 0;
+        PostQuitMessage(0);
+        return 0;
 
     case WM_DESTROY:
         PostQuitMessage(0);
-		return 0;
+        return 0;
 
     case WM_MOUSEMOVE:
         break;
@@ -69,27 +69,27 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
 
     ShowWindow(hwnd, nCmdShow);
 
-	if (false == app2->init(hwnd))
-	{
-		return 0;
-	}
+    if (false == app2->init(hwnd))
+    {
+        return 0;
+    }
 
     // loop
-	MSG msg = {};
+    MSG msg = {};
     while (msg.message != WM_QUIT)
     {
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
 
         // render frame
-		app2->drawFrame();
+        app2->drawFrame();
     }
 
     DestroyWindow(hwnd);
-	delete(app2);
+    delete(app2);
 
     return (int)msg.wParam;
 }
