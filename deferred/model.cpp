@@ -283,6 +283,15 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         }
     }
 
+    D3D12_DEPTH_STENCIL_DESC dsDesc = {};
+    dsDesc.DepthEnable = true;
+    dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
+    dsDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+    const D3D12_DEPTH_STENCILOP_DESC defaultStencilOp =
+    { D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS };
+    dsDesc.FrontFace = defaultStencilOp;
+    dsDesc.BackFace = defaultStencilOp;
+
     D3D12_GRAPHICS_PIPELINE_STATE_DESC boxPsoDesc = {};
     boxPsoDesc.pRootSignature = model.pRootSignature;
     boxPsoDesc.VS = bytecodeFromBlob(model.pModelVs);
@@ -292,13 +301,14 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     boxPsoDesc.RasterizerState.DepthClipEnable = TRUE;
     boxPsoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     boxPsoDesc.SampleMask = UINT_MAX;
-    boxPsoDesc.DepthStencilState = {};
+    boxPsoDesc.DepthStencilState = dsDesc;
     boxPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     boxPsoDesc.NumRenderTargets = 1;
     boxPsoDesc.RTVFormats[0] = pRenderer->colorFormat;
     boxPsoDesc.SampleDesc.Count = 1;
     boxPsoDesc.InputLayout.pInputElementDescs = inputElementDescs;
     boxPsoDesc.InputLayout.NumElements = numInputElements;
+    boxPsoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 
     hr = pDevice->CreateGraphicsPipelineState(&boxPsoDesc, IID_PPV_ARGS(&model.pModelPipeline));
 

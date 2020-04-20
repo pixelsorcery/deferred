@@ -185,8 +185,14 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     {
         D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
         heapDesc.NumDescriptors = pRenderer->heapSizes[i];
-        heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+        heapDesc.Type = static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(i);
+        if (heapDesc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ||
+            heapDesc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
+        {
+            heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        }
+
         hr = pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pRenderer->mainDescriptorHeaps[i]));
         if (FAILED(hr))
         {
@@ -212,7 +218,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
         cbvDesc.BufferLocation = cbvSrvHeap->GetGPUVirtualAddress();
         cbvDesc.SizeInBytes = (sizeof(16 * 4) + 255) & ~255;    // CB size is required to be 256-byte aligned.
-        pDevice->CreateConstantBufferView(&cbvDesc, pRenderer->mainDescriptorHeaps[i]->GetCPUDescriptorHandleForHeapStart());
+        pDevice->CreateConstantBufferView(&cbvDesc, pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetCPUDescriptorHandleForHeapStart()); // todo fix this
     }
 
     // create main depth stencil
@@ -221,12 +227,33 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 
     D3D12_RESOURCE_DESC resourceDesc = {};
     resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    resourceDesc.Height      = renderer::height;
-    resourceDesc.Width = renderer::width;
-    resourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;// GetFormat(pModel->images[i].component, pModel->images[i].pixel_type); //todo verify this
+    resourceDesc.Height    = renderer::height;
+    resourceDesc.Width     = renderer::width;
+    resourceDesc.Format    = DXGI_FORMAT_R32_TYPELESS;
     resourceDesc.MipLevels = 1;
     resourceDesc.SampleDesc.Count = 1;
     resourceDesc.DepthOrArraySize = 1;
+    resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+    D3D12_RESOURCE_STATES resourceState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+    D3D12_HEAP_FLAGS flags = D3D12_HEAP_FLAG_NONE;
+
+    hr = pDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resourceDesc, resourceState, nullptr, __uuidof(ID3D12Resource), (void**)&pRenderer->depthStencil);
+
+    if (FAILED(hr))
+    {
+        ErrorMsg("Failed to create depth stencil.");
+    }
+
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+    dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+    dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+    pRenderer->dsDescHandle = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]->GetCPUDescriptorHandleForHeapStart();
+    pDevice->CreateDepthStencilView(pRenderer->depthStencil, &dsvDesc, pRenderer->dsDescHandle);
+
+    //transitionResource(pRenderer, pRenderer->depthStencil, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 
     return true;
 }

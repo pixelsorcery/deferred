@@ -69,8 +69,9 @@ struct Dx12Renderer
     HANDLE                        fenceEvent;
     CComPtr<ID3D12DescriptorHeap> rtvHeap;
     CComPtr<ID3D12Resource>       backbuf[renderer::swapChainBufferCount];
-    CComPtr<ID3D12Resource>       dsv;
+    CComPtr<ID3D12Resource>       depthStencil;
     D3D12_CPU_DESCRIPTOR_HANDLE   backbufDescHandle[renderer::swapChainBufferCount];
+    D3D12_CPU_DESCRIPTOR_HANDLE   dsDescHandle;
     DXGI_FORMAT                   backbufFormat; //TODO set this correctly?
     UINT                          backbufCurrent;
 
