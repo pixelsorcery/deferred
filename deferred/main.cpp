@@ -1,5 +1,6 @@
 /*AMDG*/
 #include <windows.h>
+#include <chrono>
 #include "renderer.h"
 #include "settings.h"
 #include "app.h"
@@ -8,6 +9,8 @@
 
 extern App* app;
 extern App2* app2;
+
+using namespace std::literals;
 
 LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -76,6 +79,8 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
 
     // loop
     MSG msg = {};
+    std::chrono::steady_clock::time_point oldTime = std::chrono::high_resolution_clock::now();
+
     while (msg.message != WM_QUIT)
     {
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -83,9 +88,13 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        std::chrono::steady_clock::time_point oldTime;
+        auto newTime = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> deltaTime = newTime - oldTime;
 
         // render frame
-        app2->drawFrame();
+        app2->drawFrame(deltaTime/1s);
+        oldTime = newTime;
     }
 
     DestroyWindow(hwnd);

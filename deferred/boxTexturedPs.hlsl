@@ -15,5 +15,5 @@ float4 main(PS_INPUT input) : SV_TARGET
     float3 color = boxTexture.Sample(samLinear, input.Tex.xy).rgb;
     //color.x = input.Tex.x;
     //color.y = input.Tex.y;
-	return float4(color, 1.0f);
+    return float4(color, 1.0f);
 }

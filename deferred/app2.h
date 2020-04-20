@@ -17,7 +17,7 @@ class App2
 public:
     App2();
     bool init(HWND hwnd);
-    void drawFrame();
+    void drawFrame(double time);
     ~App2();
 private:
     std::unique_ptr<Dx12Renderer> pRenderer;

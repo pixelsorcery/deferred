@@ -25,7 +25,7 @@ bool App2::init(HWND hwnd)
     return result;
 }
 
-void App2::drawFrame()
+void App2::drawFrame(double time)
 {
     // clear
     HRESULT hr = S_OK;
@@ -45,7 +45,7 @@ void App2::drawFrame()
     pCmdList->RSSetScissorRects(1, &pRenderer->defaultScissor);
 
     // draw model
-    drawModel(pRenderer.get(), Model);
+    drawModel(pRenderer.get(), Model, time);
 
     // exec cmd buffer
     transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->currentSubmission], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);

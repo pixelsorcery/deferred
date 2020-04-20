@@ -9,40 +9,40 @@
 
 D3D12_SHADER_BYTECODE bytecodeFromBlob(ID3DBlob* blob)
 {
-	D3D12_SHADER_BYTECODE bytecode;
-	bytecode.pShaderBytecode = blob->GetBufferPointer();
-	bytecode.BytecodeLength = blob->GetBufferSize();
-	return bytecode;
+    D3D12_SHADER_BYTECODE bytecode;
+    bytecode.pShaderBytecode = blob->GetBufferPointer();
+    bytecode.BytecodeLength = blob->GetBufferSize();
+    return bytecode;
 
 }
 // read shader in from file
 ID3DBlob* compileShaderFromFile(char const* filename, char const* profile, char const* entrypt)
 {
-	ID3DBlob* code;
+    ID3DBlob* code;
 
-	std::string shaderText;
+    std::string shaderText;
 
-	std::ifstream file(filename);
-	if (file.is_open())
-	{
-		std::string str;
-		while (std::getline(file, str))
-		{
-			shaderText += str;
-			shaderText += "\n";
-		}
-	}
-	else
-	{
-		ErrorMsg("Cannot find shader file.");
-		return nullptr;
-	}
+    std::ifstream file(filename);
+    if (file.is_open())
+    {
+        std::string str;
+        while (std::getline(file, str))
+        {
+            shaderText += str;
+            shaderText += "\n";
+        }
+    }
+    else
+    {
+        ErrorMsg("Cannot find shader file.");
+        return nullptr;
+    }
 
     code = compileSource(shaderText.c_str(), profile, entrypt);
 
-	file.close();
+    file.close();
 
-	return code;
+    return code;
 }
 
 // compile shader

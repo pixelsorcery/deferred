@@ -82,8 +82,6 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         sub->cmdAlloc->SetName(L"cmd_list");
     }
 
-    ID3D12CommandList* pGfxCmdList = pRenderer->cmdSubmissions[pRenderer->currentSubmission].pGfxCmdList;
-
     // create swapchain
     CComPtr<IDXGISwapChain> pSwapChain;
     DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
@@ -93,7 +91,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     swapChainDesc.SampleDesc.Count = 1;
     swapChainDesc.SampleDesc.Quality = 0;
     swapChainDesc.Windowed = true;
-    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapChainDesc.Flags = 0;
     swapChainDesc.BufferDesc.Width = renderer::width;
     swapChainDesc.BufferDesc.Height = renderer::height;
@@ -118,7 +116,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     }
 
     // Submission fence
-    uint64 submitCount = 0;
+    uint64 submitCount = 1;
     hr = pDevice->CreateFence(submitCount, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pRenderer->pSubmitFence));
     if (FAILED(hr))
     {
@@ -216,6 +214,19 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         cbvDesc.SizeInBytes = (sizeof(16 * 4) + 255) & ~255;    // CB size is required to be 256-byte aligned.
         pDevice->CreateConstantBufferView(&cbvDesc, pRenderer->mainDescriptorHeaps[i]->GetCPUDescriptorHandleForHeapStart());
     }
+
+    // create main depth stencil
+    D3D12_HEAP_PROPERTIES heapProps = {};
+    heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+    D3D12_RESOURCE_DESC resourceDesc = {};
+    resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    resourceDesc.Height      = renderer::height;
+    resourceDesc.Width = renderer::width;
+    resourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;// GetFormat(pModel->images[i].component, pModel->images[i].pixel_type); //todo verify this
+    resourceDesc.MipLevels = 1;
+    resourceDesc.SampleDesc.Count = 1;
+    resourceDesc.DepthOrArraySize = 1;
 
     return true;
 }
@@ -429,7 +440,7 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
     ID3D12CommandList* ppCmds[] = { pRenderer->GetCurrentCmdList() };
     pRenderer->pCommandQueue->ExecuteCommandLists(1, ppCmds);
 
-    // Insert a signal event for current frame so we can wait for it to be done
+    // Insert a signal event for current frame so we can wait for it to be done if we have to
     CmdSubmission* pSub = &pRenderer->cmdSubmissions[pRenderer->currentSubmission];
     hr = pRenderer->pCommandQueue->Signal(pRenderer->pSubmitFence, pSub->completionFenceVal);
 
@@ -441,24 +452,27 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
 
     // Get next submission and wait if we have to
     UINT nextSubmissionIdx = (pRenderer->currentSubmission + 1) % renderer::submitQueueDepth;
-    if (pRenderer->pSubmitFence->GetCompletedValue() < pSub->completionFenceVal)
+
+    if (pRenderer->pSubmitFence->GetCompletedValue() < pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal)
     {
-        pRenderer->pSubmitFence->SetEventOnCompletion(pSub->completionFenceVal, pRenderer->fenceEvent);
+        pRenderer->pSubmitFence->SetEventOnCompletion(pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal, pRenderer->fenceEvent);
         WaitForSingleObject(pRenderer->fenceEvent, INFINITE);
     }
 
+    pSub = &pRenderer->cmdSubmissions[nextSubmissionIdx];
+
     // Clear allocations in new submission
-    pRenderer->cmdSubmissions[nextSubmissionIdx].deferredFrees.clear();
+    pSub->deferredFrees.clear();
 
     // Update current submission idx
     pRenderer->currentSubmission = nextSubmissionIdx;
 
-    // Increment fence
+    // update timestamp
     pRenderer->submitCount++;
-    pSub->completionFenceVal = ++pRenderer->submitCount;
+    pSub->completionFenceVal = pRenderer->submitCount;
 
     // switch cmd list over
-    hr = pRenderer->GetCurrentCmdList()->Reset(pRenderer->cmdSubmissions[nextSubmissionIdx].cmdAlloc, nullptr);
+    hr = pRenderer->GetCurrentCmdList()->Reset(pSub->cmdAlloc, nullptr);
     if (FAILED(hr)) 
     { 
         ErrorMsg("gfxCmdList->Reset(cmdSubmission[next_submission].cmdAlloc, nullptr) failed.");  
@@ -471,10 +485,10 @@ void present(Dx12Renderer* pRenderer, vsyncType vsync)
     HRESULT hr = S_OK;
     // present
     DXGI_PRESENT_PARAMETERS pp = { 0, nullptr, nullptr, nullptr };
-    hr = pRenderer->pSwapChain->Present1(vsync ? 1 : 0, vsync ? 0 : DXGI_PRESENT_RESTART, &pp);
+    hr = pRenderer->pSwapChain->Present1((vsync == vsyncOn) ? 1 : 0, (vsync == vsyncOn) ? 0 : DXGI_PRESENT_RESTART, &pp);
     if (FAILED(hr)) 
     { 
-        ErrorMsg("swapChain->Present1(vsync ? 1 : 0, vsync ? 0 : DXGI_PRESENT_RESTART, &pp) failed.");
+        ErrorMsg("present failed.");
         return;
     }
 

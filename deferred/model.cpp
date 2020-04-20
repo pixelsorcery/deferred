@@ -320,7 +320,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     return res;
 }
 
-void drawModel(Dx12Renderer* pRenderer, GltfModel& model)
+void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
 {
     ID3D12Device* pDevice = pRenderer->pDevice;
     ID3D12GraphicsCommandList* pCmdList = pRenderer->cmdSubmissions[pRenderer->currentSubmission].pGfxCmdList;
@@ -354,7 +354,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model)
 
     // start rotation
     static float angle = 0.0f;
-    angle += 0.01f;
+    angle += 0.00000001f * dt;
     modelMatrix = glm::rotate(modelMatrix, angle, glm::vec3(1.0f, 1.0f, 1.0f));
 
     // scale

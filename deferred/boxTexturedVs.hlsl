@@ -24,5 +24,5 @@ PS_INPUT main(VS_INPUT input)
     output.Pos    = mul(MVP, float4(input.Pos, 1.0));
     output.Normal = input.Normal;
     output.Tex    = input.Tex;
-	return output;
+    return output;
 }
