@@ -33,6 +33,36 @@ static int GetFormatSize(int id)
     return -1;
 }
 
+static int GetTypeSize(int type)
+{
+    switch (type)
+    {
+    case TINYGLTF_TYPE_VEC2:   return 2;
+    case TINYGLTF_TYPE_VEC3:   return 3;
+    case TINYGLTF_TYPE_VEC4:   return 4;
+    case TINYGLTF_TYPE_MAT2:   return 4;
+    case TINYGLTF_TYPE_MAT3:   return 9;
+    case TINYGLTF_TYPE_MAT4:   return 16;
+    case TINYGLTF_TYPE_SCALAR: return 1;
+    default:                   return 0;
+    }
+}
+
+static int GetComponentTypeSize(int componentType)
+{
+    switch (componentType)
+    {
+    case 5120: return 1;
+    case 5121: return 1;
+    case 5122: return 2;
+    case 5123: return 2;
+    case 5124: return 4;
+    case 5125: return 4;
+    case 5126: return 4;
+    default: return 0;
+    }
+}
+
 // Returns dxgi format based on tinygltf type
 static DXGI_FORMAT GetFormat(int type, int id)
 {

@@ -16,7 +16,9 @@ struct GltfModel
     std::vector<D3D12_VERTEX_BUFFER_VIEW>     BufferViews;
     std::vector<CComPtr<ID3D12Resource>>      IndexBuffers;
     std::vector<D3D12_INDEX_BUFFER_VIEW>      IndexBufViews;
+    std::vector<CComPtr<ID3D12PipelineState>> ModelPipelines;
     std::vector<int>                          IndexBufSizes;
+    std::vector<int>                          PrimitiveBufCounts;
     CComPtr<ID3D12RootSignature>              pRootSignature;
     tinygltf::Model                           TinyGltfModel;
     std::vector<Texture>                      Textures;
@@ -26,7 +28,6 @@ struct GltfModel
     CComPtr<ID3D12DescriptorHeap>             TextureDescriptorHeap;
     UINT                                      NumDescriptors;
     D3D12_ROOT_DESCRIPTOR_TABLE               DescriptorTable;
-    CComPtr<ID3D12PipelineState>              pModelPipeline;
     CComPtr<ID3DBlob>                         pModelVs, pModelPs;
 
     //~GltfModel()

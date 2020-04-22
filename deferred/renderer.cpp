@@ -178,7 +178,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 
     pRenderer->cbvSrvUavDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     pRenderer->rtvDescriptorSize       = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    pRenderer->rtvDescriptorSize       = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+    pRenderer->dsvDescriptorSize       = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
     // create gpu descriptor heaps
     for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++)
@@ -187,6 +187,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         heapDesc.NumDescriptors = pRenderer->heapSizes[i];
         heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
         heapDesc.Type = static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(i);
+
         if (heapDesc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ||
             heapDesc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
         {
@@ -203,7 +204,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         pRenderer->mainDescriptorHeaps[i]->SetName(heapTypeStrings[i]);
     }
 
-    // create cb upload heaps
+    // create cb upload heaps // todo make this one ring buffer
     for (int i = 0; i < renderer::swapChainBufferCount; ++i)
     {
         CComPtr<ID3D12Resource> cbvSrvUploadHeap;
@@ -238,7 +239,11 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     D3D12_RESOURCE_STATES resourceState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
     D3D12_HEAP_FLAGS flags = D3D12_HEAP_FLAG_NONE;
 
-    hr = pDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resourceDesc, resourceState, nullptr, __uuidof(ID3D12Resource), (void**)&pRenderer->depthStencil);
+    D3D12_CLEAR_VALUE clearValue = {};
+    clearValue.Format = DXGI_FORMAT_D32_FLOAT;
+    clearValue.DepthStencil.Depth = 0.0;
+
+    hr = pDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resourceDesc, resourceState, &clearValue, __uuidof(ID3D12Resource), (void**)&pRenderer->depthStencil);
 
     if (FAILED(hr))
     {
@@ -383,15 +388,15 @@ bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const
     D3D12_RESOURCE_DESC desc = pResource->GetDesc();
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp;
-    UINT64 rowSize, totalBytes;
-    pDevice->GetCopyableFootprints(&desc, 0, 1, 0, &fp, nullptr, &rowSize, &totalBytes);
+
+    UINT64 totalBytes = rowPitch * ((slicePitch > 0) ? slicePitch : 1);
 
     // create upload buffer
     CComPtr<ID3D12Resource> uploadTemp;
     uploadTemp = createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, totalBytes, D3D12_RESOURCE_STATE_GENERIC_READ);
 
     // map the upload resource
-    BYTE* pBufData;
+    BYTE* pBufData = nullptr;
     hr = uploadTemp->Map(0, nullptr, (void**)& pBufData);
     if (FAILED(hr)) 
     { 
@@ -405,9 +410,7 @@ bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const
         BYTE const* pSource = (BYTE const*)data + z * slicePitch;
         for (UINT y = 0; y < desc.Height; ++y)
         {
-            memcpy(pBufData, pSource, SIZE_T(desc.Width));
-            pBufData += rowSize;
-            pSource += rowPitch;
+            memcpy(pBufData, pSource, SIZE_T(totalBytes));
         }
     }
 
@@ -418,7 +421,6 @@ bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const
     pRenderer->GetCurrentCmdList()->CopyResource(pResource, uploadTemp);
 
     pRenderer->cmdSubmissions[pRenderer->currentSubmission].deferredFrees.push_back((ID3D12DeviceChild*)uploadTemp);
-    uploadTemp.Release();
 
     return true;
 }

@@ -122,7 +122,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     model.TextureDescriptorHeap->SetName(L"Texture Descriptor Heap for Model");
 
     uint heapIncrementSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-   
+
     // Create srvs
     for (uint i = 0; i < arr.size; i++)
     {
@@ -143,7 +143,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     // modelview matrix and texture
     D3D12_DESCRIPTOR_RANGE srvRange = {};
     srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srvRange.NumDescriptors = 1;
+    srvRange.NumDescriptors = static_cast<uint>(model.Textures.size());
 
     D3D12_DESCRIPTOR_RANGE cbvRange = {};
     cbvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
@@ -174,11 +174,22 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     sampDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 
     D3D12_ROOT_SIGNATURE_DESC rootSigDesc = {};
-    rootSigDesc.NumParameters = 2;
+    rootSigDesc.NumParameters = 1;
     rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-    rootSigDesc.NumStaticSamplers = 1;
     rootSigDesc.pParameters = params;
-    rootSigDesc.pStaticSamplers = &sampDesc;
+    rootSigDesc.pStaticSamplers = nullptr;
+
+    if (model.Textures.size() > 0)
+    {
+        rootSigDesc.NumParameters = 2;
+        rootSigDesc.NumStaticSamplers = 1;
+        rootSigDesc.pStaticSamplers = &sampDesc;
+    }
+    else
+    {
+        rootSigDesc.NumParameters = 1;
+        rootSigDesc.NumStaticSamplers = 0;
+    }
 
     // Serialize and create root signature
     CComPtr<ID3DBlob> serializedRootSig;
@@ -199,18 +210,51 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     }
 
     // create shaders // todo add option for shaders
-    model.pModelVs = compileShaderFromFile("boxTexturedVS.hlsl", "vs_5_1", "main");
-    model.pModelPs = compileShaderFromFile("boxTexturedPs.hlsl", "ps_5_1", "main");
+    if (model.Textures.size() > 0)
+    {
+        model.pModelVs = compileShaderFromFile("boxTexturedVS.hlsl", "vs_5_1", "main");
+        model.pModelPs = compileShaderFromFile("boxTexturedPs.hlsl", "ps_5_1", "main");
+    }
+    else
+    {
+        model.pModelVs = compileShaderFromFile("untexturedModel.hlsl", "vs_5_1", "VS");
+        model.pModelPs = compileShaderFromFile("untexturedModel.hlsl", "ps_5_1", "PS");
+    }
+
+    // Read in all buffers
+    for (int i = 0; i < pModel->buffers.size(); i++)
+    {
+        CComPtr<ID3D12Resource> buffer;
+        uint size = static_cast<uint>(pModel->buffers[i].data.size());
+        buffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, size, D3D12_RESOURCE_STATE_COPY_DEST);
+        buffer->SetName(L"model_vtx_buffer");
+        model.pBuffers.push_back(buffer);
+
+        // upload data
+        bool result = uploadBuffer(pRenderer,
+            model.pBuffers.back(),
+            &pModel->buffers[i].data[0],
+            size,
+            0);
+
+        if (result == false)
+        {
+            ErrorMsg("Failed to create vertex buffer.");
+            return false;
+        }
+
+        transitionResource(pRenderer, model.pBuffers.back(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+
+    }
 
     // Create pipelines for every mesh and primitive
-    UINT numInputElements = 0;
     D3D12_INPUT_ELEMENT_DESC inputElementDescs[D3D12_STANDARD_VERTEX_ELEMENT_COUNT];
     vector<string> semanticNames;
-
     for (int i = 0; i < pModel->meshes.size(); i++)
     {
         for (int j = 0; j < pModel->meshes[i].primitives.size(); j++)
         {
+            UINT numInputElements = 0;
             auto it = pModel->meshes[i].primitives[j].attributes.begin();
             semanticNames.resize(pModel->meshes[i].primitives[j].attributes.size());
             for (int k = 0; k < pModel->meshes[i].primitives[j].attributes.size(); k++)
@@ -230,102 +274,106 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
                 it++;
                 numInputElements++;
 
-                // create buffer
+                // create buffer views
                 tinygltf::BufferView gltfBufView = pModel->bufferViews[accessor.bufferView];
-                CComPtr<ID3D12Resource> pBuf = nullptr;
-                pBuf = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, gltfBufView.byteLength, D3D12_RESOURCE_STATE_COPY_DEST);
-                model.pBuffers.push_back(pBuf);
-                pBuf->SetName(L"model_vtx_buffer");
 
-                // upload buffer
-                uploadBuffer(pRenderer,
-                    model.pBuffers.back(),
-                    &pModel->buffers[gltfBufView.buffer].data.at(gltfBufView.byteOffset + accessor.byteOffset),
-                    (UINT)gltfBufView.byteLength,
-                    0);
-
-                transitionResource(pRenderer, model.pBuffers.back(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+                uint length = static_cast<uint>(accessor.count) *
+                    GetTypeSize(accessor.type) *
+                    GetComponentTypeSize(accessor.componentType);
 
                 D3D12_VERTEX_BUFFER_VIEW bufView = {};
-                bufView.BufferLocation = model.pBuffers.back()->GetGPUVirtualAddress();
-                bufView.SizeInBytes = (UINT)gltfBufView.byteLength;
+                bufView.BufferLocation = model.pBuffers[gltfBufView.buffer]->GetGPUVirtualAddress() + gltfBufView.byteOffset + accessor.byteOffset;
+                bufView.SizeInBytes = length;
                 bufView.StrideInBytes = (UINT)gltfBufView.byteStride;
 
                 model.BufferViews.push_back(bufView);
             }
 
+            model.PrimitiveBufCounts.push_back(numInputElements);
+
             // load index buffer
             UINT accessorIdx = pModel->meshes[i].primitives[j].indices;
             UINT bufViewIdx = pModel->accessors[accessorIdx].bufferView;
             tinygltf::BufferView gltfIdxBufView = pModel->bufferViews[bufViewIdx];
+            tinygltf::Accessor* pIdxAcessor = &pModel->accessors[accessorIdx];
 
+            // size of data is the componentType (e.g. uint, float, etc) size * Type (vec2, vec3, mat4, etc.) size * count
+            unsigned int byteLength = static_cast<uint>(pIdxAcessor->count) *
+                                      GetTypeSize(pIdxAcessor->type) *
+                                      GetComponentTypeSize(pIdxAcessor->componentType);
             CComPtr<ID3D12Resource> indexBuffer;
-            indexBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, gltfIdxBufView.byteLength, D3D12_RESOURCE_STATE_COPY_DEST);
+            indexBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, byteLength, D3D12_RESOURCE_STATE_COPY_DEST);
             indexBuffer->SetName(L"model_index_buffer");
             model.IndexBuffers.push_back(indexBuffer);
 
+            // pointer to data, offset in buffer view + offset in accessor
+            void* data = (void*)pModel->buffers[gltfIdxBufView.buffer].data[gltfIdxBufView.byteOffset + pIdxAcessor->byteOffset];
+            
             uploadBuffer(pRenderer,
                 indexBuffer,
-                &pModel->buffers[gltfIdxBufView.buffer].data[gltfIdxBufView.byteOffset + pModel->accessors[accessorIdx].byteOffset],
-                (UINT)gltfIdxBufView.byteLength,
+                &pModel->buffers[gltfIdxBufView.buffer].data[gltfIdxBufView.byteOffset + pIdxAcessor->byteOffset],
+                byteLength,
                 0);
 
             transitionResource(pRenderer, indexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER);
 
-            UINT stride = GetFormatSize(pModel->accessors[accessorIdx].componentType);
+            UINT stride = GetFormatSize(pIdxAcessor->componentType);
             D3D12_INDEX_BUFFER_VIEW indexBufView = {};
             indexBufView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
             indexBufView.Format = (gltfIdxBufView.byteStride == 4) ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
-            indexBufView.SizeInBytes = static_cast<UINT>(gltfIdxBufView.byteLength);
+            indexBufView.SizeInBytes = byteLength;
 
             model.IndexBufViews.push_back(indexBufView);
-            model.IndexBufSizes.push_back(static_cast<UINT>(pModel->accessors[accessorIdx].count));
+            model.IndexBufSizes.push_back(static_cast<UINT>(pIdxAcessor->count));
+
+            D3D12_DEPTH_STENCIL_DESC dsDesc = {};
+            dsDesc.DepthEnable = true;
+            dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
+            dsDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+            const D3D12_DEPTH_STENCILOP_DESC defaultStencilOp =
+            { D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS };
+            dsDesc.FrontFace = defaultStencilOp;
+            dsDesc.BackFace = defaultStencilOp;
+
+            D3D12_GRAPHICS_PIPELINE_STATE_DESC modelPsoDesc = {};
+            modelPsoDesc.pRootSignature = model.pRootSignature;
+            modelPsoDesc.VS = bytecodeFromBlob(model.pModelVs);
+            modelPsoDesc.PS = bytecodeFromBlob(model.pModelPs);
+            modelPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+            modelPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+            modelPsoDesc.RasterizerState.DepthClipEnable = TRUE;
+            modelPsoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+            modelPsoDesc.SampleMask = UINT_MAX;
+            modelPsoDesc.DepthStencilState = dsDesc;
+            modelPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+            modelPsoDesc.NumRenderTargets = 1;
+            modelPsoDesc.RTVFormats[0] = pRenderer->colorFormat;
+            modelPsoDesc.SampleDesc.Count = 1;
+            modelPsoDesc.InputLayout.pInputElementDescs = inputElementDescs;
+            modelPsoDesc.InputLayout.NumElements = numInputElements;
+            modelPsoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+
+            CComPtr<ID3D12PipelineState> pso;
+            hr = pDevice->CreateGraphicsPipelineState(&modelPsoDesc, IID_PPV_ARGS(&pso));
+
+            if (S_OK != hr)
+            {
+                ErrorMsg("Model pipeline creation failed.");
+                return false;
+            }
+
+            model.ModelPipelines.push_back(pso);
         }
     }
-
-    D3D12_DEPTH_STENCIL_DESC dsDesc = {};
-    dsDesc.DepthEnable = true;
-    dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
-    dsDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-    const D3D12_DEPTH_STENCILOP_DESC defaultStencilOp =
-    { D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS };
-    dsDesc.FrontFace = defaultStencilOp;
-    dsDesc.BackFace = defaultStencilOp;
-
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC boxPsoDesc = {};
-    boxPsoDesc.pRootSignature = model.pRootSignature;
-    boxPsoDesc.VS = bytecodeFromBlob(model.pModelVs);
-    boxPsoDesc.PS = bytecodeFromBlob(model.pModelPs);
-    boxPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-    boxPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
-    boxPsoDesc.RasterizerState.DepthClipEnable = TRUE;
-    boxPsoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-    boxPsoDesc.SampleMask = UINT_MAX;
-    boxPsoDesc.DepthStencilState = dsDesc;
-    boxPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    boxPsoDesc.NumRenderTargets = 1;
-    boxPsoDesc.RTVFormats[0] = pRenderer->colorFormat;
-    boxPsoDesc.SampleDesc.Count = 1;
-    boxPsoDesc.InputLayout.pInputElementDescs = inputElementDescs;
-    boxPsoDesc.InputLayout.NumElements = numInputElements;
-    boxPsoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-
-    hr = pDevice->CreateGraphicsPipelineState(&boxPsoDesc, IID_PPV_ARGS(&model.pModelPipeline));
 
 #if defined(_DEBUG)
     dbgModel(*pModel);
 #endif 
 
-    if (S_OK != hr)
-    {
-        ErrorMsg("Model pipeline creation failed.");
-        return false;
-    }
-
     // create a descriptor table for cbv and srv
-    D3D12_DESCRIPTOR_RANGE descRanges[2] = { cbvRange, srvRange };
-    model.DescriptorTable.NumDescriptorRanges = cbvRange.NumDescriptors + srvRange.NumDescriptors;
-    model.DescriptorTable.pDescriptorRanges = descRanges;
+    //D3D12_DESCRIPTOR_RANGE descRanges[2] = { cbvRange, srvRange };
+    //model.DescriptorTable.NumDescriptorRanges = cbvRange.NumDescriptors + srvRange.NumDescriptors;
+    //model.DescriptorTable.pDescriptorRanges = descRanges;
 
     return res;
 }
@@ -338,18 +386,19 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
     // set root sig
     pCmdList->SetGraphicsRootSignature(model.pRootSignature);
 
-    // set pipeline
-    pCmdList->SetPipelineState(model.pModelPipeline);
-
     D3D12_CPU_DESCRIPTOR_HANDLE dest = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetCPUDescriptorHandleForHeapStart();
     dest.ptr += pRenderer->cbvSrvUavDescriptorSize;
-    D3D12_CPU_DESCRIPTOR_HANDLE src = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
-    D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetGPUDescriptorHandleForHeapStart();
-    srvTableStart.ptr += pRenderer->cbvSrvUavDescriptorSize;
-    // copy descriptor to heap
-    pDevice->CopyDescriptorsSimple(1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart;
+    if (model.Textures.size() > 0)
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE src = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
+        srvTableStart = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetGPUDescriptorHandleForHeapStart();
+        srvTableStart.ptr += pRenderer->cbvSrvUavDescriptorSize;
+        // copy descriptor to heap
+        pDevice->CopyDescriptorsSimple(1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    }
     // update model view projection matrix
     glm::mat4 modelMatrix = glm::mat4(1.0);
 
@@ -364,7 +413,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
 
     // start rotation
     static float angle = 0.0f;
-    angle += 0.00000001f * dt;
+    angle += 0.00000001f * static_cast<float>(dt);
     modelMatrix = glm::rotate(modelMatrix, angle, glm::vec3(1.0f, 1.0f, 1.0f));
 
     // scale
@@ -383,18 +432,27 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
 
     pCmdList->SetDescriptorHeaps(1, &pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].p);
     pCmdList->SetGraphicsRootDescriptorTable(0, pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetGPUDescriptorHandleForHeapStart());
-    pCmdList->SetGraphicsRootDescriptorTable(1, srvTableStart);
+    
+    if (model.Textures.size() > 0)
+    {
+        pCmdList->SetGraphicsRootDescriptorTable(1, srvTableStart);
+    }
 
     pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // draw all meshes
-    for (int i = 0; i < model.IndexBuffers.size(); i++)
+    // set pipeline
+    uint bufferViewIdx = 0;
+    for (uint i = 0; i < model.IndexBuffers.size(); i++)
     {
+        pCmdList->SetPipelineState(model.ModelPipelines[i]);
+
         // set buffers
-        pCmdList->IASetVertexBuffers(0, static_cast<UINT>(model.pBuffers.size()), &model.BufferViews[i]);
+        pCmdList->IASetVertexBuffers(0, model.PrimitiveBufCounts[i], &model.BufferViews[bufferViewIdx]);
         pCmdList->IASetIndexBuffer(&model.IndexBufViews[i]);
 
         // draw box
         pCmdList->DrawIndexedInstanced(model.IndexBufSizes[i], 1, 0, 0, 0);
+
+        bufferViewIdx += model.PrimitiveBufCounts[i];
     }
 }

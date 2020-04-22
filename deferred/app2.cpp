@@ -20,8 +20,8 @@ bool App2::init(HWND hwnd)
 
     // load model
     //bool result = loadModel(pRenderer.get(), Model, "..\\models\\BoxTextured.gltf");
-    bool result = loadModel(pRenderer.get(), Model, "..\\models\\duck\\Duck.gltf");
-    //bool result = loadModel(pRenderer.get(), Model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
+    //bool result = loadModel(pRenderer.get(), Model, "..\\models\\duck\\Duck.gltf");
+    bool result = loadModel(pRenderer.get(), Model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
     return result;
 }
 

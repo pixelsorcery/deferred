@@ -109,5 +109,8 @@
     <FxCompile Include="boxTexturedPs.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="untexturedModel.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
