@@ -66,11 +66,15 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
             vector<float> floatMat(pModel->nodes[nodeIdx].matrix.begin(), pModel->nodes[nodeIdx].matrix.end());
             memcpy(glm::value_ptr(localMatrix), &floatMat[0], sizeof(float) * floatMat.size());
             localMatrix = matrix * localMatrix;
-            if (pModel->nodes[nodeIdx].mesh != -1)
-            {
-                model.Matrices[pModel->nodes[nodeIdx].mesh] = localMatrix;
-            }
         }
+        if (pModel->nodes[nodeIdx].mesh != -1)
+        {
+            model.Matrices[pModel->nodes[nodeIdx].mesh] = localMatrix;
+        }
+
+        assert(pModel->nodes[nodeIdx].translation.size() == 0);
+        assert(pModel->nodes[nodeIdx].scale.size() == 0);
+        assert(pModel->nodes[nodeIdx].rotation.size() == 0);
 
         transformNodes(model, pModel->nodes[nodeIdx].children, localMatrix);
     }
@@ -184,7 +188,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
     params[1] = {};
     params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[1].DescriptorTable.NumDescriptorRanges = arr.size;
+    params[1].DescriptorTable.NumDescriptorRanges = 1;
     params[1].DescriptorTable.pDescriptorRanges = &srvRange;
     params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
@@ -403,16 +407,17 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     assert(model.Matrices.size() == model.IndexBuffers.size());
 
     // view projection
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f),
+    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 800.0f),
         glm::vec3(0.0f, 0.0f, 0.0f),
         glm::vec3(0.0f, 1.0f, 0.0f));
 
 
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f),
+    glm::mat4 proj = glm::perspective(glm::radians(60.0f),
         (float)renderer::width / (float)renderer::height,
         0.1f,
-        100.0f);
+        1000.0f);
 
+    //glm::mat4 scale = glm::scale(glm::vec3(0.05));
     // create constant heap for matrices
     uint alignedMatrixSize = ((sizeof(glm::mat4) + 255) & ~255);
     model.ConstantBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.Matrices.size() * alignedMatrixSize, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -428,6 +433,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     {
         // update buffer
         *ptr = model.Matrices[i];
+        *ptr = proj * view * *ptr;
         //glm::rotate(pMatrices[i], angle, glm::vec3(1.0f, 1.0f, 1.0f));
         ptr += alignedMatrixSize / sizeof(glm::mat4);
     }
@@ -494,14 +500,6 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
     for (uint i = 0; i < model.IndexBuffers.size(); i++)
     {
         glm::mat4 modelMatrix = model.Matrices[i];
-
-        // set up transforms
-        static float angle = 0.0f;
-        angle += 0.00000001f * static_cast<float>(dt);
-        modelMatrix = glm::rotate(modelMatrix, angle, glm::vec3(1.0f, 1.0f, 1.0f));
-
-        // scale
-        modelMatrix = glm::scale(modelMatrix, glm::vec3(0.005f, 0.005f, 0.005f));
 
         pCmdList->SetGraphicsRootConstantBufferView(0, constantBufferAddr);
 

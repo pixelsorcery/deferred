@@ -12,8 +12,16 @@ float4 main(PS_INPUT input) : SV_TARGET
 {
     //float2 coords = float2(0.25f, 0.22f);
     //float3 color = boxTexture.Sample(samLinear, coords).rgb;
-    float3 color = boxTexture.Sample(samLinear, input.Tex.xy).rgb;
+    //float3 color = boxTexture.Sample(samLinear, input.Tex.xy).rgb;
     //color.x = input.Tex.x;
     //color.y = input.Tex.y;
-    return float4(color, 1.0f);
+    //return float4(color, 1.0f);
+
+    float3 light = float3(-20.0, 20.0, -20.0);
+    float3 color = boxTexture.Sample(samLinear, input.Tex.xy).rgb;
+    float3 normal = normalize(input.Normal);
+    light = normalize(light);
+
+    float3 diffuse = saturate(dot(normal, light)) * color;
+    return float4(diffuse, 1.0f);
 }
