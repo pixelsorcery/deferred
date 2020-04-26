@@ -120,6 +120,7 @@
   <ItemGroup>
     <ClCompile Include="app.cpp" />
     <ClCompile Include="app2.cpp" />
+    <ClCompile Include="heaps.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="model.cpp" />
     <ClCompile Include="renderer.cpp" />

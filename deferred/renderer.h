@@ -95,7 +95,6 @@ struct Dx12Renderer
 
     CComPtr<ID3D12DescriptorHeap> mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
     CComPtr<ID3D12Resource> cbvSrvUavUploadHeaps[renderer::swapChainBufferCount];
-    CComPtr<ID3D12Resource> cbvSrvUavHeaps[renderer::swapChainBufferCount];
 
     CComPtr<ID3D12GraphicsCommandList> GetCurrentCmdList(){ return cmdSubmissions[currentSubmission].pGfxCmdList; };
 

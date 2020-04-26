@@ -209,17 +209,10 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     {
         CComPtr<ID3D12Resource> cbvSrvUploadHeap;
         CComPtr<ID3D12Resource> cbvSrvHeap;
-
-        cbvSrvUploadHeap = createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, 512, D3D12_RESOURCE_STATE_GENERIC_READ);
-        cbvSrvHeap = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, 512, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        int size = 1024 * 64; // max size is 64k
+        cbvSrvUploadHeap = createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, size, D3D12_RESOURCE_STATE_GENERIC_READ);
 
         pRenderer->cbvSrvUavUploadHeaps[i] = cbvSrvUploadHeap;
-        pRenderer->cbvSrvUavHeaps[i] = cbvSrvHeap;
-
-        D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-        cbvDesc.BufferLocation = cbvSrvHeap->GetGPUVirtualAddress();
-        cbvDesc.SizeInBytes = (sizeof(16 * 4) + 255) & ~255;    // CB size is required to be 256-byte aligned.
-        pDevice->CreateConstantBufferView(&cbvDesc, pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetCPUDescriptorHandleForHeapStart()); // todo fix this
     }
 
     // create main depth stencil
@@ -344,11 +337,11 @@ bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void cons
     uploadTemp->Map(0, nullptr, reinterpret_cast<void**>(&pBufData));
 
     // copy data to buffer
-    memcpy(pBufData, data, width * height * comp);
+    memcpy(pBufData, data, static_cast<size_t>(width) * height * comp);
     uploadTemp->Unmap(0, nullptr);
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp;
-    UINT64 rowSize, totalBytes;
+    uint64 rowSize, totalBytes;
     pDevice->GetCopyableFootprints(&desc, 0, 1, 0, &fp, nullptr, &rowSize, &totalBytes);
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc, destLoc;
@@ -386,12 +379,9 @@ bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const
     ID3D12Device* pDevice = pRenderer->pDevice;
 
     D3D12_RESOURCE_DESC desc = pResource->GetDesc();
+    uint64 totalBytes = static_cast<uint64>(rowPitch) * ((slicePitch > 0) ? slicePitch : 1);
 
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp;
-
-    UINT64 totalBytes = rowPitch * ((slicePitch > 0) ? slicePitch : 1);
-
-    // create upload buffer
+    // create upload buffer (todo: if we have to, otherwise set offset and reuse)
     CComPtr<ID3D12Resource> uploadTemp;
     uploadTemp = createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, totalBytes, D3D12_RESOURCE_STATE_GENERIC_READ);
 
@@ -418,7 +408,7 @@ bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const
     D3D12_RANGE written = { 0, (SIZE_T)totalBytes };
     uploadTemp->Unmap(0, &written);
 
-    pRenderer->GetCurrentCmdList()->CopyResource(pResource, uploadTemp);
+    pRenderer->GetCurrentCmdList()->CopyBufferRegion(pResource, 0, uploadTemp, 0, totalBytes);
 
     pRenderer->cmdSubmissions[pRenderer->currentSubmission].deferredFrees.push_back((ID3D12DeviceChild*)uploadTemp);
 

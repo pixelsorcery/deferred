@@ -4,6 +4,8 @@
 #include <atlbase.h>
 #include "renderer.h"
 #include "tiny_gltf.h"
+#include "glm/glm.hpp"
+#include "util.h"
 
 struct GltfModel;
 
@@ -23,14 +25,13 @@ struct GltfModel
     tinygltf::Model                           TinyGltfModel;
     std::vector<Texture>                      Textures;
     std::vector<UINT>                         IndexBufSize;
-    UINT                                      NumPrimitives;
-    UINT                                      NumTextures;
+    uint                                      NumPrimitives;
+    uint                                      NumTextures;
     CComPtr<ID3D12DescriptorHeap>             TextureDescriptorHeap;
     UINT                                      NumDescriptors;
     D3D12_ROOT_DESCRIPTOR_TABLE               DescriptorTable;
     CComPtr<ID3DBlob>                         pModelVs, pModelPs;
-
-    //~GltfModel()
-    //{
-    //}
+    std::vector<glm::mat4>                    Matrices;
+    CComPtr<ID3D12Resource>                   ConstantBuffer;
+    uint                                      ConstantBufferIncrement;
 };

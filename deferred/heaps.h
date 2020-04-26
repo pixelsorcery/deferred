@@ -1,15 +1,21 @@
 #pragma once
 #include <d3d12.h>
-#include <memory>
+#include <atlbase.h>
 
-class HeapMgr
+class Dx12UploadHeap
 {
 public:
-    HeapMgr* GetHeapMgr();
+    Dx12UploadHeap(D3D12_HEAP_TYPE heapType, int size);
+    void Reset();
 
+    // Copy data to heap
+    void uploadData(ID3D12Resource* dest, int size, )
+    // Mapped pointer
 private:
-    D3D12_DESCRIPTOR_HEAP_DESC rtvHeap;
-    HeapMgr();
-    HeapMgr(const HeapMgr&);
-    HeapMgr& operator=(const HeapMgr&);
+    CComPtr<ID3D12Resource>
+};
+
+struct Dx12GpuHeap
+{
+
 };

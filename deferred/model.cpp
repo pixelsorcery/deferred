@@ -1,5 +1,7 @@
 #include <vector>
 #include <string>
+#include <algorithm>
+
 #include "model.h"
 #include "gltfHelper.h"
 #include "util.h"
@@ -8,6 +10,7 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtx/transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
 
 using namespace std;
 
@@ -47,6 +50,31 @@ void dbgModel(tinygltf::Model& model) {
     }
 }
 #endif
+
+void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
+{
+    if (nodes.empty()) return;
+
+    tinygltf::Model* pModel = &model.TinyGltfModel;
+
+    for (int i = 0; i < nodes.size(); i++)
+    {
+        glm::mat4 localMatrix(1.0);
+        int nodeIdx = nodes[i];
+        if (pModel->nodes[nodeIdx].matrix.size() > 0)
+        {
+            vector<float> floatMat(pModel->nodes[nodeIdx].matrix.begin(), pModel->nodes[nodeIdx].matrix.end());
+            memcpy(glm::value_ptr(localMatrix), &floatMat[0], sizeof(float) * floatMat.size());
+            localMatrix = matrix * localMatrix;
+            if (pModel->nodes[nodeIdx].mesh != -1)
+            {
+                model.Matrices[pModel->nodes[nodeIdx].mesh] = localMatrix;
+            }
+        }
+
+        transformNodes(model, pModel->nodes[nodeIdx].children, localMatrix);
+    }
+}
 
 bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 {
@@ -151,9 +179,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
     D3D12_ROOT_PARAMETER params[2];
     params[0] = {};
-    params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[0].DescriptorTable.NumDescriptorRanges = 1; // just mvp for now
-    params[0].DescriptorTable.pDescriptorRanges = &cbvRange;
+    params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
 
     params[1] = {};
@@ -174,21 +200,17 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     sampDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 
     D3D12_ROOT_SIGNATURE_DESC rootSigDesc = {};
-    rootSigDesc.NumParameters = 1;
+    rootSigDesc.NumParameters = 1; // todo fix this magic number
     rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     rootSigDesc.pParameters = params;
     rootSigDesc.pStaticSamplers = nullptr;
+    rootSigDesc.NumStaticSamplers = 0;
 
     if (model.Textures.size() > 0)
     {
-        rootSigDesc.NumParameters = 2;
-        rootSigDesc.NumStaticSamplers = 1;
+        rootSigDesc.NumParameters++;
+        rootSigDesc.NumStaticSamplers++;
         rootSigDesc.pStaticSamplers = &sampDesc;
-    }
-    else
-    {
-        rootSigDesc.NumParameters = 1;
-        rootSigDesc.NumStaticSamplers = 0;
     }
 
     // Serialize and create root signature
@@ -244,7 +266,6 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         }
 
         transitionResource(pRenderer, model.pBuffers.back(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-
     }
 
     // Create pipelines for every mesh and primitive
@@ -366,6 +387,57 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         }
     }
 
+    // process matrices
+    uint defaultScene = pModel->defaultScene;
+
+    tinygltf::Scene scene = pModel->scenes[defaultScene];
+
+    vector<int> curNodes = scene.nodes;
+    glm::mat4 initWorldMatrix = glm::mat4(1.0);
+    model.Matrices.resize(model.IndexBuffers.size());
+
+    // initialize all mesh world positions using scene hierarchy
+    transformNodes(model, scene.nodes, initWorldMatrix);
+
+    // make sure the matrices are the same as the number of prims we're drawing otherwise this whole thing blow us
+    assert(model.Matrices.size() == model.IndexBuffers.size());
+
+    // view projection
+    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f),
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f));
+
+
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f),
+        (float)renderer::width / (float)renderer::height,
+        0.1f,
+        100.0f);
+
+    // create constant heap for matrices
+    uint alignedMatrixSize = ((sizeof(glm::mat4) + 255) & ~255);
+    model.ConstantBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.Matrices.size() * alignedMatrixSize, D3D12_RESOURCE_STATE_COPY_DEST);
+
+    // start rotation
+    //static float angle = 0.0f;
+    //angle += 0.01f;
+
+    model.ConstantBufferIncrement = alignedMatrixSize;
+    glm::mat4* pMatrices = new glm::mat4[model.Matrices.size() * alignedMatrixSize];
+    glm::mat4* ptr = pMatrices;
+    for (int i = 0; i < model.Matrices.size(); i++)
+    {
+        // update buffer
+        *ptr = model.Matrices[i];
+        //glm::rotate(pMatrices[i], angle, glm::vec3(1.0f, 1.0f, 1.0f));
+        ptr += alignedMatrixSize / sizeof(glm::mat4);
+    }
+
+    // upload buffer
+    uploadBuffer(pRenderer, model.ConstantBuffer, pMatrices, model.Matrices.size() * alignedMatrixSize, 0);
+    transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+    delete[] pMatrices;
+
 #if defined(_DEBUG)
     dbgModel(*pModel);
 #endif 
@@ -383,6 +455,8 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
     ID3D12Device* pDevice = pRenderer->pDevice;
     ID3D12GraphicsCommandList* pCmdList = pRenderer->cmdSubmissions[pRenderer->currentSubmission].pGfxCmdList;
 
+    // todo: update matrices and copy them here
+
     // set root sig
     pCmdList->SetGraphicsRootSignature(model.pRootSignature);
 
@@ -399,40 +473,9 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
         // copy descriptor to heap
         pDevice->CopyDescriptorsSimple(1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     }
-    // update model view projection matrix
-    glm::mat4 modelMatrix = glm::mat4(1.0);
-
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f),
-        glm::vec3(0.0f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 1.0f, 0.0f));
-
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f),
-        (float)renderer::width / (float)renderer::height,
-        0.1f,
-        100.0f);
-
-    // start rotation
-    static float angle = 0.0f;
-    angle += 0.00000001f * static_cast<float>(dt);
-    modelMatrix = glm::rotate(modelMatrix, angle, glm::vec3(1.0f, 1.0f, 1.0f));
-
-    // scale
-    modelMatrix = glm::scale(modelMatrix, glm::vec3(0.005f, 0.005f, 0.005f));
-
-    glm::mat4 mvp = proj * view * modelMatrix;
-
-    D3D12_RANGE range = {};
-    UINT* pData;
-
-    pRenderer->cbvSrvUavUploadHeaps[pRenderer->currentSubmission]->Map(0, &range, reinterpret_cast<void**>(&pData));
-    memcpy(pData, &mvp, sizeof(mvp));
-    transitionResource(pRenderer, pRenderer->cbvSrvUavHeaps[pRenderer->currentSubmission], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-    pCmdList->CopyResource(pRenderer->cbvSrvUavHeaps[pRenderer->currentSubmission], pRenderer->cbvSrvUavUploadHeaps[pRenderer->currentSubmission]);
-    transitionResource(pRenderer, pRenderer->cbvSrvUavHeaps[pRenderer->currentSubmission], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
     pCmdList->SetDescriptorHeaps(1, &pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].p);
-    pCmdList->SetGraphicsRootDescriptorTable(0, pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetGPUDescriptorHandleForHeapStart());
-    
+
     if (model.Textures.size() > 0)
     {
         pCmdList->SetGraphicsRootDescriptorTable(1, srvTableStart);
@@ -442,8 +485,28 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
 
     // set pipeline
     uint bufferViewIdx = 0;
+
+    D3D12_RANGE range = {};
+    UINT* pData;
+
+    D3D12_GPU_VIRTUAL_ADDRESS constantBufferAddr = model.ConstantBuffer->GetGPUVirtualAddress();
+
     for (uint i = 0; i < model.IndexBuffers.size(); i++)
     {
+        glm::mat4 modelMatrix = model.Matrices[i];
+
+        // set up transforms
+        static float angle = 0.0f;
+        angle += 0.00000001f * static_cast<float>(dt);
+        modelMatrix = glm::rotate(modelMatrix, angle, glm::vec3(1.0f, 1.0f, 1.0f));
+
+        // scale
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(0.005f, 0.005f, 0.005f));
+
+        pCmdList->SetGraphicsRootConstantBufferView(0, constantBufferAddr);
+
+        constantBufferAddr += model.ConstantBufferIncrement;
+
         pCmdList->SetPipelineState(model.ModelPipelines[i]);
 
         // set buffers
