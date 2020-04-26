@@ -5,6 +5,7 @@
 #include <atlbase.h>
 #include <vector>
 #include "settings.h"
+#include "util.h"
 
 struct CmdSubmission
 {
@@ -102,12 +103,12 @@ struct Dx12Renderer
 };
 
 bool initDevice(Dx12Renderer* pRenderer, HWND hwnd);
-CComPtr<ID3D12Resource> createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states);
-bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT rowPitch, UINT slicePitch);
+CComPtr<ID3D12Resource> createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint size, D3D12_RESOURCE_STATES states);
+bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, uint rowPitch, uint slicePitch);
 void transitionResource(Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
 void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue);
 void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc);
 void submitCmdBuffer(Dx12Renderer* pRenderer);
 void present(Dx12Renderer* pRenderer, vsyncType vsync);
-Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT width, UINT height, DXGI_FORMAT format);
-bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT width, UINT height, UINT comp, DXGI_FORMAT format);
+Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width, uint height, DXGI_FORMAT format);
+bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, uint width, uint height, uint comp, DXGI_FORMAT format);

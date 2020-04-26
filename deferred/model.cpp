@@ -59,22 +59,37 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
 
     for (int i = 0; i < nodes.size(); i++)
     {
-        glm::mat4 localMatrix(1.0);
+        glm::mat4 localMatrix(matrix);
         int nodeIdx = nodes[i];
-        if (pModel->nodes[nodeIdx].matrix.size() > 0)
+        tinygltf::Node* pCurNode = &pModel->nodes[nodeIdx];
+
+        if (pCurNode->matrix.size() > 0)
         {
-            vector<float> floatMat(pModel->nodes[nodeIdx].matrix.begin(), pModel->nodes[nodeIdx].matrix.end());
+            // todo: fix compiler complaint about this conversion
+            vector<float> floatMat(pCurNode->matrix.begin(), pCurNode->matrix.end());
             memcpy(glm::value_ptr(localMatrix), &floatMat[0], sizeof(float) * floatMat.size());
             localMatrix = matrix * localMatrix;
         }
-        if (pModel->nodes[nodeIdx].mesh != -1)
+
+        if (pCurNode->scale.size() > 0)
         {
-            model.Matrices[pModel->nodes[nodeIdx].mesh] = localMatrix;
+            // scale matrix
+        }
+        if (pCurNode->rotation.size() > 0)
+        {
+            // rotate
+        }
+        if (pCurNode->translation.size() > 0)
+        {
+            // translate
         }
 
-        assert(pModel->nodes[nodeIdx].translation.size() == 0);
-        assert(pModel->nodes[nodeIdx].scale.size() == 0);
-        assert(pModel->nodes[nodeIdx].rotation.size() == 0);
+        // apply to mesh if we have one
+        if (pCurNode->mesh != -1)
+        {
+            SceneNode node = { pCurNode->mesh, localMatrix };
+            model.sceneNodes.push(node);
+        }
 
         transformNodes(model, pModel->nodes[nodeIdx].children, localMatrix);
     }
@@ -92,7 +107,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
     if (res == false) return false;
 
-    DynArray<D3D12_RESOURCE_DESC> arr;
+    DynArray<D3D12_RESOURCE_DESC> resourceDescArray;
 
     tinygltf::Model* pModel = &model.TinyGltfModel;
 
@@ -120,6 +135,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         if (FAILED(hr))
         {
             ErrorMsg("Failed to create texture for model.");
+            return false;
         }
 
         uploadTexture(pRenderer,
@@ -135,12 +151,12 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         tex.desc = resourceDesc;
         model.Textures.push_back(tex);
 
-        arr.push(resourceDesc);
+        resourceDescArray.push(resourceDesc);
     }
 
     // Create cpu descriptor heap
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-    heapDesc.NumDescriptors = arr.size;
+    heapDesc.NumDescriptors = resourceDescArray.size;
     heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     heapDesc.Flags;
 
@@ -156,11 +172,11 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     uint heapIncrementSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     // Create srvs
-    for (uint i = 0; i < arr.size; i++)
+    for (uint i = 0; i < resourceDescArray.size; i++)
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        srvDesc.Format = arr[i].Format;
-        srvDesc.Texture2D.MipLevels = arr[i].MipLevels;
+        srvDesc.Format = resourceDescArray[i].Format;
+        srvDesc.Texture2D.MipLevels = resourceDescArray[i].MipLevels;
         srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
         srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
@@ -269,7 +285,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
             return false;
         }
 
-        transitionResource(pRenderer, model.pBuffers.back(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+        transitionResource(pRenderer, model.pBuffers.back(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_INDEX_BUFFER);
     }
 
     // Create pipelines for every mesh and primitive
@@ -277,8 +293,11 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     vector<string> semanticNames;
     for (int i = 0; i < pModel->meshes.size(); i++)
     {
+        Mesh mesh = {};
+
         for (int j = 0; j < pModel->meshes[i].primitives.size(); j++)
         {
+            Prim prim = {};
             UINT numInputElements = 0;
             auto it = pModel->meshes[i].primitives[j].attributes.begin();
             semanticNames.resize(pModel->meshes[i].primitives[j].attributes.size());
@@ -309,14 +328,12 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
                 D3D12_VERTEX_BUFFER_VIEW bufView = {};
                 bufView.BufferLocation = model.pBuffers[gltfBufView.buffer]->GetGPUVirtualAddress() + gltfBufView.byteOffset + accessor.byteOffset;
                 bufView.SizeInBytes = length;
-                bufView.StrideInBytes = (UINT)gltfBufView.byteStride;
+                bufView.StrideInBytes = static_cast<uint>(gltfBufView.byteStride);
 
-                model.BufferViews.push_back(bufView);
+                prim.bufferViews.push(bufView);
             }
 
-            model.PrimitiveBufCounts.push_back(numInputElements);
-
-            // load index buffer
+            // create index buffer view
             UINT accessorIdx = pModel->meshes[i].primitives[j].indices;
             UINT bufViewIdx = pModel->accessors[accessorIdx].bufferView;
             tinygltf::BufferView gltfIdxBufView = pModel->bufferViews[bufViewIdx];
@@ -326,30 +343,17 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
             unsigned int byteLength = static_cast<uint>(pIdxAcessor->count) *
                                       GetTypeSize(pIdxAcessor->type) *
                                       GetComponentTypeSize(pIdxAcessor->componentType);
-            CComPtr<ID3D12Resource> indexBuffer;
-            indexBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, byteLength, D3D12_RESOURCE_STATE_COPY_DEST);
-            indexBuffer->SetName(L"model_index_buffer");
-            model.IndexBuffers.push_back(indexBuffer);
 
-            // pointer to data, offset in buffer view + offset in accessor
-            void* data = (void*)pModel->buffers[gltfIdxBufView.buffer].data[gltfIdxBufView.byteOffset + pIdxAcessor->byteOffset];
-            
-            uploadBuffer(pRenderer,
-                indexBuffer,
-                &pModel->buffers[gltfIdxBufView.buffer].data[gltfIdxBufView.byteOffset + pIdxAcessor->byteOffset],
-                byteLength,
-                0);
+            // presumably we've already read in the buffer so all we have to do is create a view
+            uint bufferIdx = gltfIdxBufView.buffer;
+            uint stride = GetFormatSize(pIdxAcessor->componentType);
+            prim.indexBufView = {};
+            prim.indexBufView.BufferLocation = model.pBuffers[bufferIdx]->GetGPUVirtualAddress() + gltfIdxBufView.byteOffset + pIdxAcessor->byteOffset;
+            prim.indexBufView.Format = (gltfIdxBufView.byteStride == 4) ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
+            prim.indexBufView.SizeInBytes = byteLength;
 
-            transitionResource(pRenderer, indexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER);
-
-            UINT stride = GetFormatSize(pIdxAcessor->componentType);
-            D3D12_INDEX_BUFFER_VIEW indexBufView = {};
-            indexBufView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
-            indexBufView.Format = (gltfIdxBufView.byteStride == 4) ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
-            indexBufView.SizeInBytes = byteLength;
-
-            model.IndexBufViews.push_back(indexBufView);
-            model.IndexBufSizes.push_back(static_cast<UINT>(pIdxAcessor->count));
+            // save index size
+            prim.indexBufSize = static_cast<UINT>(pIdxAcessor->count);
 
             D3D12_DEPTH_STENCIL_DESC dsDesc = {};
             dsDesc.DepthEnable = true;
@@ -378,8 +382,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
             modelPsoDesc.InputLayout.NumElements = numInputElements;
             modelPsoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 
-            CComPtr<ID3D12PipelineState> pso;
-            hr = pDevice->CreateGraphicsPipelineState(&modelPsoDesc, IID_PPV_ARGS(&pso));
+            hr = pDevice->CreateGraphicsPipelineState(&modelPsoDesc, IID_PPV_ARGS(&prim.pPipeline));
 
             if (S_OK != hr)
             {
@@ -387,8 +390,10 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
                 return false;
             }
 
-            model.ModelPipelines.push_back(pso);
+            mesh.prims.push(prim);
         }
+
+        model.meshes.push(mesh);
     }
 
     // process matrices
@@ -398,13 +403,9 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
     vector<int> curNodes = scene.nodes;
     glm::mat4 initWorldMatrix = glm::mat4(1.0);
-    model.Matrices.resize(model.IndexBuffers.size());
 
     // initialize all mesh world positions using scene hierarchy
     transformNodes(model, scene.nodes, initWorldMatrix);
-
-    // make sure the matrices are the same as the number of prims we're drawing otherwise this whole thing blow us
-    assert(model.Matrices.size() == model.IndexBuffers.size());
 
     // view projection
     glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 800.0f),
@@ -412,37 +413,36 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         glm::vec3(0.0f, 1.0f, 0.0f));
 
 
-    glm::mat4 proj = glm::perspective(glm::radians(60.0f),
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f),
         (float)renderer::width / (float)renderer::height,
         0.1f,
         1000.0f);
 
+    model.viewProj = proj * view;
+
     //glm::mat4 scale = glm::scale(glm::vec3(0.05));
     // create constant heap for matrices
-    uint alignedMatrixSize = ((sizeof(glm::mat4) + 255) & ~255);
-    model.ConstantBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.Matrices.size() * alignedMatrixSize, D3D12_RESOURCE_STATE_COPY_DEST);
+    model.alignedMatrixSize = ((sizeof(glm::mat4) + 255) & ~255);
+    model.ConstantBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedMatrixSize, D3D12_RESOURCE_STATE_COPY_DEST);
 
-    // start rotation
-    //static float angle = 0.0f;
-    //angle += 0.01f;
+    model.pCpuConstantBuffer = make_unique<glm::mat4[]>(model.sceneNodes.size * model.alignedMatrixSize);
+    glm::mat4* ptr = model.pCpuConstantBuffer.get();
 
-    model.ConstantBufferIncrement = alignedMatrixSize;
-    glm::mat4* pMatrices = new glm::mat4[model.Matrices.size() * alignedMatrixSize];
-    glm::mat4* ptr = pMatrices;
-    for (int i = 0; i < model.Matrices.size(); i++)
+    D3D12_GPU_VIRTUAL_ADDRESS bufferAddress = model.ConstantBuffer->GetGPUVirtualAddress();
+
+    for (int i = 0; i < model.sceneNodes.size; i++)
     {
-        // update buffer
-        *ptr = model.Matrices[i];
-        *ptr = proj * view * *ptr;
-        //glm::rotate(pMatrices[i], angle, glm::vec3(1.0f, 1.0f, 1.0f));
-        ptr += alignedMatrixSize / sizeof(glm::mat4);
+        // update buffer // todo move this to draw time
+        *ptr = model.sceneNodes[i].transformation;
+        *ptr = model.viewProj * *ptr;
+        ptr += model.alignedMatrixSize / sizeof(glm::mat4);
+        model.sceneNodes[i].constantBufferAddr = bufferAddress;
+        bufferAddress += model.alignedMatrixSize;
     }
 
     // upload buffer
-    uploadBuffer(pRenderer, model.ConstantBuffer, pMatrices, model.Matrices.size() * alignedMatrixSize, 0);
+    uploadBuffer(pRenderer, model.ConstantBuffer, model.pCpuConstantBuffer.get(), model.sceneNodes.size * model.alignedMatrixSize, 0);
     transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-
-    delete[] pMatrices;
 
 #if defined(_DEBUG)
     dbgModel(*pModel);
@@ -461,7 +461,23 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
     ID3D12Device* pDevice = pRenderer->pDevice;
     ID3D12GraphicsCommandList* pCmdList = pRenderer->cmdSubmissions[pRenderer->currentSubmission].pGfxCmdList;
 
-    // todo: update matrices and copy them here
+    // update matrices and copy them here
+    glm::mat4* ptr = model.pCpuConstantBuffer.get();
+    //static float angle = 0.0001;
+    //angle += 0.0000001 * dt;
+    for (int i = 0; i < model.sceneNodes.size; i++)
+    {
+        // update position
+        *ptr = model.sceneNodes[i].transformation;
+        //*ptr = glm::rotate(*ptr, angle, glm::vec3(1.0f, 1.0f, 1.0f));
+        *ptr = model.viewProj * *ptr;
+        ptr += model.alignedMatrixSize / sizeof(glm::mat4);
+    }
+
+    // upload buffer
+    transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+    uploadBuffer(pRenderer, model.ConstantBuffer, model.pCpuConstantBuffer.get(), model.sceneNodes.size * model.alignedMatrixSize, 0);
+    transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
     // set root sig
     pCmdList->SetGraphicsRootSignature(model.pRootSignature);
@@ -489,31 +505,22 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
 
     pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // set pipeline
-    uint bufferViewIdx = 0;
-
-    D3D12_RANGE range = {};
-    UINT* pData;
-
-    D3D12_GPU_VIRTUAL_ADDRESS constantBufferAddr = model.ConstantBuffer->GetGPUVirtualAddress();
-
-    for (uint i = 0; i < model.IndexBuffers.size(); i++)
+    for (uint nodeidx = 0; nodeidx < model.sceneNodes.size; nodeidx++)
     {
-        glm::mat4 modelMatrix = model.Matrices[i];
+        SceneNode* pNode = &model.sceneNodes[nodeidx];
+        for (uint primidx = 0; primidx < model.meshes[pNode->meshIdx].prims.size; primidx++)
+        {
+            Prim* pPrim = &model.meshes[pNode->meshIdx].prims[primidx];
 
-        pCmdList->SetGraphicsRootConstantBufferView(0, constantBufferAddr);
+            pCmdList->SetGraphicsRootConstantBufferView(0, pNode->constantBufferAddr);
+            pCmdList->SetPipelineState(pPrim->pPipeline);
 
-        constantBufferAddr += model.ConstantBufferIncrement;
+            // set buffers
+            pCmdList->IASetVertexBuffers(0, pPrim->bufferViews.size, &pPrim->bufferViews[0]);
+            pCmdList->IASetIndexBuffer(&pPrim->indexBufView);
 
-        pCmdList->SetPipelineState(model.ModelPipelines[i]);
-
-        // set buffers
-        pCmdList->IASetVertexBuffers(0, model.PrimitiveBufCounts[i], &model.BufferViews[bufferViewIdx]);
-        pCmdList->IASetIndexBuffer(&model.IndexBufViews[i]);
-
-        // draw box
-        pCmdList->DrawIndexedInstanced(model.IndexBufSizes[i], 1, 0, 0, 0);
-
-        bufferViewIdx += model.PrimitiveBufCounts[i];
+            // draw box
+            pCmdList->DrawIndexedInstanced(pPrim->indexBufSize, 1, 0, 0, 0);
+        }
     }
 }

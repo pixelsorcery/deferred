@@ -256,7 +256,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     return true;
 }
 
-CComPtr<ID3D12Resource> createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT64 size, D3D12_RESOURCE_STATES states)
+CComPtr<ID3D12Resource> createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint size, D3D12_RESOURCE_STATES states)
 {
     HRESULT hr = S_OK;
 
@@ -290,7 +290,7 @@ CComPtr<ID3D12Resource> createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_T
     return resource;
 }
 
-Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT width, UINT height, DXGI_FORMAT format)
+Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width, uint height, DXGI_FORMAT format)
 {
     Texture tex = {};
 
@@ -321,7 +321,7 @@ Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, UINT wi
     return tex;
 }
 
-bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT width, UINT height, UINT comp, DXGI_FORMAT format)
+bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, uint width, uint height, uint comp, DXGI_FORMAT format)
 {
     HRESULT hr = S_OK;
     ID3D12Device* pDevice = pRenderer->pDevice;
@@ -373,13 +373,13 @@ void transitionResource(Dx12Renderer* pRenderer, ID3D12Resource* res, D3D12_RESO
     pRenderer->GetCurrentCmdList()->ResourceBarrier(1, &barrier);
 }
 
-bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, UINT rowPitch, UINT slicePitch)
+bool uploadBuffer(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, uint rowPitch, uint slicePitch)
 {
     HRESULT hr = S_OK;
     ID3D12Device* pDevice = pRenderer->pDevice;
 
     D3D12_RESOURCE_DESC desc = pResource->GetDesc();
-    uint64 totalBytes = static_cast<uint64>(rowPitch) * ((slicePitch > 0) ? slicePitch : 1);
+    uint totalBytes = static_cast<uint64>(rowPitch) * ((slicePitch > 0) ? slicePitch : 1);
 
     // create upload buffer (todo: if we have to, otherwise set offset and reuse)
     CComPtr<ID3D12Resource> uploadTemp;
