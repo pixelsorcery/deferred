@@ -11,6 +11,7 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtx/transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
+#include "glm/gtc/matrix_inverse.hpp"
 
 using namespace std;
 
@@ -193,20 +194,22 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     srvRange.NumDescriptors = static_cast<uint>(model.Textures.size());
 
-    D3D12_DESCRIPTOR_RANGE cbvRange = {};
-    cbvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-    cbvRange.NumDescriptors = 1;
-
-    D3D12_ROOT_PARAMETER params[2];
+    D3D12_ROOT_PARAMETER params[3];
     params[0] = {};
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+    params[0].Descriptor.ShaderRegister = 0;
 
     params[1] = {};
-    params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[1].DescriptorTable.NumDescriptorRanges = 1;
-    params[1].DescriptorTable.pDescriptorRanges = &srvRange;
-    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+    params[1].Descriptor.ShaderRegister = 1;
+
+    params[2] = {};
+    params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    params[2].DescriptorTable.NumDescriptorRanges = 1;
+    params[2].DescriptorTable.pDescriptorRanges = &srvRange;
+    params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_STATIC_SAMPLER_DESC sampDesc = {};
     sampDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -220,7 +223,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     sampDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 
     D3D12_ROOT_SIGNATURE_DESC rootSigDesc = {};
-    rootSigDesc.NumParameters = 1; // todo fix this magic number
+    rootSigDesc.NumParameters = 2; // todo fix this magic number
     rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     rootSigDesc.pParameters = params;
     rootSigDesc.pStaticSamplers = nullptr;
@@ -235,11 +238,19 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
     // Serialize and create root signature
     CComPtr<ID3DBlob> serializedRootSig;
-    hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &serializedRootSig, NULL);
+    ID3DBlob* errors;
+    hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &serializedRootSig, &errors);
+
+    if (errors)
+    {
+        char* error = (char*)errors->GetBufferPointer();
+        ErrorMsg(error);
+    }
+
 
     if (S_OK != hr)
     {
-        ErrorMsg("D3D12SerializeRootSignature() failed.");
+        ErrorMsg("D3D12SerializeRootSignature() failed.\n");
         return false;
     }
 
@@ -247,7 +258,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
     if (S_OK != hr)
     {
-        ErrorMsg("CreateRootSignature() failed.");
+        ErrorMsg("CreateRootSignature() failed.\n");
         return false;
     }
 
@@ -357,7 +368,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
             D3D12_DEPTH_STENCIL_DESC dsDesc = {};
             dsDesc.DepthEnable = true;
-            dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
+            dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
             dsDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
             const D3D12_DEPTH_STENCILOP_DESC defaultStencilOp =
             { D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS };
@@ -369,7 +380,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
             modelPsoDesc.VS = bytecodeFromBlob(model.pModelVs);
             modelPsoDesc.PS = bytecodeFromBlob(model.pModelPs);
             modelPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-            modelPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+            modelPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
             modelPsoDesc.RasterizerState.DepthClipEnable = TRUE;
             modelPsoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
             modelPsoDesc.SampleMask = UINT_MAX;
@@ -408,41 +419,56 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     transformNodes(model, scene.nodes, initWorldMatrix);
 
     // view projection
-    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 800.0f),
-        glm::vec3(0.0f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 1.0f, 0.0f));
+    model.view = glm::lookAt(glm::vec3(0.0f, 20.0f, 30.0f), // eye
+                             glm::vec3(0.0f, 0.0f, 0.0f),   // center
+                             glm::vec3(0.0f, 1.0f, 0.0f));  // up
 
 
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f),
-        (float)renderer::width / (float)renderer::height,
-        0.1f,
-        1000.0f);
-
-    model.viewProj = proj * view;
+    model.proj = glm::perspective(glm::radians(45.0f),
+                                 (float)renderer::width / (float)renderer::height,
+                                 0.1f,
+                                 100.0f);
 
     //glm::mat4 scale = glm::scale(glm::vec3(0.05));
     // create constant heap for matrices
     model.alignedMatrixSize = ((sizeof(glm::mat4) + 255) & ~255);
+
+    // todo: add better constant buffer management
     model.ConstantBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedMatrixSize, D3D12_RESOURCE_STATE_COPY_DEST);
+    model.ConstantBuffer2 = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedMatrixSize, D3D12_RESOURCE_STATE_COPY_DEST);
 
     model.pCpuConstantBuffer = make_unique<glm::mat4[]>(model.sceneNodes.size * model.alignedMatrixSize);
+    model.pCpuConstantBuffer2 = make_unique<glm::mat4[]>(model.sceneNodes.size * model.alignedMatrixSize);
+
     glm::mat4* ptr = model.pCpuConstantBuffer.get();
+    glm::mat4* worldPtr = model.pCpuConstantBuffer2.get();
 
     D3D12_GPU_VIRTUAL_ADDRESS bufferAddress = model.ConstantBuffer->GetGPUVirtualAddress();
+    D3D12_GPU_VIRTUAL_ADDRESS bufferAddress2 = model.ConstantBuffer2->GetGPUVirtualAddress();
 
     for (int i = 0; i < model.sceneNodes.size; i++)
     {
         // update buffer // todo move this to draw time
+        *worldPtr = model.sceneNodes[i].transformation;
+        *worldPtr = model.view * *worldPtr;
+        worldPtr += model.alignedMatrixSize / sizeof(glm::mat4);
+
         *ptr = model.sceneNodes[i].transformation;
-        *ptr = model.viewProj * *ptr;
+        *ptr = model.proj * model.view * *ptr;
         ptr += model.alignedMatrixSize / sizeof(glm::mat4);
-        model.sceneNodes[i].constantBufferAddr = bufferAddress;
+
+        model.cb0Ptrs.push(bufferAddress);
+        model.cb1Ptrs.push(bufferAddress2);
         bufferAddress += model.alignedMatrixSize;
+        bufferAddress2 += model.alignedMatrixSize;
     }
 
     // upload buffer
     uploadBuffer(pRenderer, model.ConstantBuffer, model.pCpuConstantBuffer.get(), model.sceneNodes.size * model.alignedMatrixSize, 0);
     transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+    uploadBuffer(pRenderer, model.ConstantBuffer2, model.pCpuConstantBuffer2.get(), model.sceneNodes.size* model.alignedMatrixSize, 0);
+    transitionResource(pRenderer, model.ConstantBuffer2, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
 #if defined(_DEBUG)
     dbgModel(*pModel);
@@ -461,16 +487,35 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
     ID3D12Device* pDevice = pRenderer->pDevice;
     ID3D12GraphicsCommandList* pCmdList = pRenderer->cmdSubmissions[pRenderer->currentSubmission].pGfxCmdList;
 
-    // update matrices and copy them here
+    // initialize all mesh world positions using scene hierarchy
+    uint defaultScene = model.TinyGltfModel.defaultScene;
+
+    tinygltf::Scene scene = model.TinyGltfModel.scenes[defaultScene];
+
+    vector<int> curNodes = scene.nodes;
+    glm::mat4 initWorldMatrix = glm::mat4(1.0);
+    static float angle = 0.0001;
+    angle += 0.0000001 * dt;
+
+    model.sceneNodes.erase();
+
+    initWorldMatrix = glm::scale(initWorldMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
+    initWorldMatrix = glm::rotate(initWorldMatrix, angle, glm::vec3(1.0f, 1.0f, 1.0f));
+    transformNodes(model, scene.nodes, initWorldMatrix);
+
     glm::mat4* ptr = model.pCpuConstantBuffer.get();
-    //static float angle = 0.0001;
-    //angle += 0.0000001 * dt;
+    glm::mat4* worldPtr = model.pCpuConstantBuffer2.get();
+
     for (int i = 0; i < model.sceneNodes.size; i++)
     {
-        // update position
+        // update normal matrix
+        *worldPtr = model.sceneNodes[i].transformation;
+        *worldPtr = model.view * *worldPtr;
+        *worldPtr = glm::inverseTranspose(*worldPtr);
+        worldPtr += model.alignedMatrixSize / sizeof(glm::mat4);
+
         *ptr = model.sceneNodes[i].transformation;
-        //*ptr = glm::rotate(*ptr, angle, glm::vec3(1.0f, 1.0f, 1.0f));
-        *ptr = model.viewProj * *ptr;
+        *ptr = model.proj * model.view * *ptr;
         ptr += model.alignedMatrixSize / sizeof(glm::mat4);
     }
 
@@ -478,6 +523,10 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
     transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
     uploadBuffer(pRenderer, model.ConstantBuffer, model.pCpuConstantBuffer.get(), model.sceneNodes.size * model.alignedMatrixSize, 0);
     transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+    transitionResource(pRenderer, model.ConstantBuffer2, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+    uploadBuffer(pRenderer, model.ConstantBuffer2, model.pCpuConstantBuffer2.get(), model.sceneNodes.size * model.alignedMatrixSize, 0);
+    transitionResource(pRenderer, model.ConstantBuffer2, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
     // set root sig
     pCmdList->SetGraphicsRootSignature(model.pRootSignature);
@@ -512,7 +561,8 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
         {
             Prim* pPrim = &model.meshes[pNode->meshIdx].prims[primidx];
 
-            pCmdList->SetGraphicsRootConstantBufferView(0, pNode->constantBufferAddr);
+            pCmdList->SetGraphicsRootConstantBufferView(0, model.cb0Ptrs[nodeidx]);
+            pCmdList->SetGraphicsRootConstantBufferView(1, model.cb1Ptrs[nodeidx]);
             pCmdList->SetPipelineState(pPrim->pPipeline);
 
             // set buffers

@@ -33,10 +33,7 @@ struct DynArray
             for (int i = 0; i < size; i++)
             {
                 // loop to not mess up com object ref counts
-                for (int i = 0; i < size; i++)
-                {
-                    tarr[i] = arr[i];
-                }
+                tarr[i] = arr[i];
             }
             delete[] arr;
             arr = tarr;
@@ -44,6 +41,17 @@ struct DynArray
         assert(size < capacity);
         arr[size] = val;
         size++;
+    }
+
+    void erase()
+    {
+        if (arr != nullptr)
+        {
+            delete[] arr;
+            size = 0;
+            capacity = 16;
+            arr = new T[capacity];
+        }
     }
 
     DynArray(const DynArray& other)
@@ -59,7 +67,7 @@ struct DynArray
 
     DynArray(DynArray&& other)
     {
-        assert(0); // not tested.. do we want this to be destructive?
+        assert(0); // not tested..
         if (arr != nullptr)
         {
             delete[] arr;
@@ -91,7 +99,7 @@ struct DynArray
 
     DynArray& operator=(const DynArray&& rhs)
     {
-        assert(0); // not tested.. do we want this to be destructive?
+        assert(0); // not tested..
         if (arr != nullptr)
         {
             delete[] arr;

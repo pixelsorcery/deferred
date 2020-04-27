@@ -43,7 +43,7 @@ void App2::drawFrame(double time)
     float clearCol[4] = { 0.4f, 0.4f, 0.6f, 1.0f };
     pCmdList->ClearRenderTargetView(pRenderer->backbufDescHandle[pRenderer->currentSubmission], clearCol, 0, nullptr);
     D3D12_CLEAR_FLAGS clearFlags = D3D12_CLEAR_FLAG_DEPTH;
-    pCmdList->ClearDepthStencilView(pRenderer->dsDescHandle, clearFlags, 0.0, 0, 0, nullptr);
+    pCmdList->ClearDepthStencilView(pRenderer->dsDescHandle, clearFlags, 1.0, 0, 0, nullptr);
 
     pCmdList->RSSetViewports(1, &pRenderer->defaultViewport);
     pCmdList->RSSetScissorRects(1, &pRenderer->defaultScissor);

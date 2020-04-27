@@ -32,7 +32,6 @@ struct SceneNode
 {
     int                       meshIdx;
     glm::mat4                 transformation;
-    D3D12_GPU_VIRTUAL_ADDRESS constantBufferAddr;
 };
 
 struct GltfModel
@@ -55,10 +54,15 @@ struct GltfModel
     D3D12_ROOT_DESCRIPTOR_TABLE               DescriptorTable;
     CComPtr<ID3DBlob>                         pModelVs, pModelPs;
     CComPtr<ID3D12Resource>                   ConstantBuffer;
+    CComPtr<ID3D12Resource>                   ConstantBuffer2;
     uint                                      ConstantBufferIncrement;
     DynArray<Mesh>                            meshes;
     DynArray<SceneNode>                       sceneNodes;
     std::unique_ptr<glm::mat4[]>              pCpuConstantBuffer; // todo make this upload heap
+    std::unique_ptr<glm::mat4[]>              pCpuConstantBuffer2; // inverse transpose normal matrix todo make this upload heap
     int                                       alignedMatrixSize;
-    glm::mat4                                 viewProj;
+    glm::mat4                                 view;
+    glm::mat4                                 proj;
+    DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb0Ptrs;
+    DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb1Ptrs;
 };

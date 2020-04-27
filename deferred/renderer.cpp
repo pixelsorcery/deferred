@@ -234,7 +234,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 
     D3D12_CLEAR_VALUE clearValue = {};
     clearValue.Format = DXGI_FORMAT_D32_FLOAT;
-    clearValue.DepthStencil.Depth = 0.0;
+    clearValue.DepthStencil.Depth = 1.0;
 
     hr = pDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resourceDesc, resourceState, &clearValue, __uuidof(ID3D12Resource), (void**)&pRenderer->depthStencil);
 
