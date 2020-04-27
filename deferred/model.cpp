@@ -573,4 +573,10 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
             pCmdList->DrawIndexedInstanced(pPrim->indexBufSize, 1, 0, 0, 0);
         }
     }
+
+#if defined(_DEBUG)
+    //CComPtr<ID3D12DebugDevice> debugDevice;
+    //HRESULT hr = pDevice->QueryInterface(__uuidof(ID3D12DebugDevice1), reinterpret_cast<void**>(&debugDevice));
+    //debugDevice->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL);
+#endif
 }

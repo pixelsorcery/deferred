@@ -58,7 +58,3 @@ void App2::drawFrame(double time)
     // present
     present(pRenderer.get(), vsyncOff);
 }
-
-App2::~App2()
-{
-}

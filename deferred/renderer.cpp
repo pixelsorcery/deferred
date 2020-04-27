@@ -447,7 +447,7 @@ void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue
 void submitCmdBuffer(Dx12Renderer* pRenderer)
 {
     HRESULT hr = S_OK;
-    CComPtr<ID3D12GraphicsCommandList> const pCmdList = pRenderer->GetCurrentCmdList();
+    ID3D12GraphicsCommandList* const pCmdList = pRenderer->GetCurrentCmdList();
     hr = pCmdList->Close();
 
     if (FAILED(hr))
@@ -491,10 +491,11 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
     pSub->completionFenceVal = pRenderer->submitCount;
 
     // switch cmd list over
+    pSub->cmdAlloc->Reset();
     hr = pRenderer->GetCurrentCmdList()->Reset(pSub->cmdAlloc, nullptr);
     if (FAILED(hr)) 
     { 
-        ErrorMsg("gfxCmdList->Reset(cmdSubmission[next_submission].cmdAlloc, nullptr) failed.");  
+        ErrorMsg("gfxCmdList->Reset(cmdSubmission[next_submission].cmdAlloc, nullptr) failed.\n");  
         return; 
     }
 }
@@ -507,7 +508,7 @@ void present(Dx12Renderer* pRenderer, vsyncType vsync)
     hr = pRenderer->pSwapChain->Present1((vsync == vsyncOn) ? 1 : 0, (vsync == vsyncOn) ? 0 : DXGI_PRESENT_RESTART, &pp);
     if (FAILED(hr)) 
     { 
-        ErrorMsg("present failed.");
+        ErrorMsg("present failed.\n");
         return;
     }
 
