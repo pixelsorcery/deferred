@@ -10,6 +10,6 @@ void WarningMsg(const char* msg);
 
 enum RendererType
 {
-dx12,
+    dx12,
     vulkan,
 };

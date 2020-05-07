@@ -52,6 +52,17 @@ void dbgModel(tinygltf::Model& model) {
 }
 #endif
 
+// taken from https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
+glm::mat4 MakeInfReversedZProjRH(float fovY_radians, float aspectWbyH, float zNear)
+{
+    float f = 1.0f / tan(fovY_radians / 2.0f);
+    return glm::mat4(
+        f / aspectWbyH, 0.0f, 0.0f, 0.0f,
+        0.0f, f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, -1.0f,
+        0.0f, 0.0f, zNear, 0.0f);
+}
+
 void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
 {
     if (nodes.empty()) return;
@@ -368,7 +379,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
             D3D12_DEPTH_STENCIL_DESC dsDesc = {};
             dsDesc.DepthEnable = true;
-            dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+            dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER;
             dsDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
             const D3D12_DEPTH_STENCILOP_DESC defaultStencilOp =
             { D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS };
@@ -423,11 +434,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
                              glm::vec3(0.0f, 0.0f, 0.0f),   // center
                              glm::vec3(0.0f, 1.0f, 0.0f));  // up
 
-
-    model.proj = glm::perspective(glm::radians(45.0f),
-                                 (float)renderer::width / (float)renderer::height,
-                                 0.1f,
-                                 100.0f);
+    model.proj = MakeInfReversedZProjRH(glm::radians(45.0f), (float)renderer::width / (float)renderer::height, 0.1f);
 
     //glm::mat4 scale = glm::scale(glm::vec3(0.05));
     // create constant heap for matrices
@@ -494,8 +501,8 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
 
     vector<int> curNodes = scene.nodes;
     glm::mat4 initWorldMatrix = glm::mat4(1.0);
-    static float angle = 0.0001;
-    angle += 0.0000001 * dt;
+    static float angle = 0.1;
+    angle += dt;
 
     model.sceneNodes.erase();
 

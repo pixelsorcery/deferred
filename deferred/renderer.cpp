@@ -75,11 +75,19 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         hr = pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&sub->cmdAlloc));
         if (FAILED(hr)) { ErrorMsg("Couldn't create command allocator"); }
         sub->cmdAlloc->SetName(L"cmd_allocator");
+        sub->cmdAlloc->Reset();
 
         // command list
         hr = pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, sub->cmdAlloc, nullptr, IID_PPV_ARGS(&sub->pGfxCmdList));
         if (FAILED(hr)) { ErrorMsg("Couldn't create command list"); }
-        sub->cmdAlloc->SetName(L"cmd_list");
+        sub->pGfxCmdList->SetName(L"cmd_list");
+        sub->pGfxCmdList->Close();
+        sub->pGfxCmdList->Reset(sub->cmdAlloc, nullptr);
+
+        if (i > 0)
+        {
+            sub->pGfxCmdList->Close();
+        }
     }
 
     // create swapchain
@@ -234,7 +242,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 
     D3D12_CLEAR_VALUE clearValue = {};
     clearValue.Format = DXGI_FORMAT_D32_FLOAT;
-    clearValue.DepthStencil.Depth = 1.0;
+    clearValue.DepthStencil.Depth = 0.0;
 
     hr = pDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &resourceDesc, resourceState, &clearValue, __uuidof(ID3D12Resource), (void**)&pRenderer->depthStencil);
 
@@ -493,9 +501,10 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
     // switch cmd list over
     pSub->cmdAlloc->Reset();
     hr = pRenderer->GetCurrentCmdList()->Reset(pSub->cmdAlloc, nullptr);
+
     if (FAILED(hr)) 
     { 
-        ErrorMsg("gfxCmdList->Reset(cmdSubmission[next_submission].cmdAlloc, nullptr) failed.\n");  
+        ErrorMsg("gfxCmdList->Reset(cmdSubmission[next_submission].cmdAlloc, nullptr) failed.\n");
         return; 
     }
 }
