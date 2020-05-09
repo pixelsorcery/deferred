@@ -30,7 +30,7 @@ struct DynArray
             // resize
             capacity *= 2;
             T* tarr = new T[capacity];
-            for (int i = 0; i < size; i++)
+            for (uint i = 0; i < size; i++)
             {
                 // loop to not mess up com object ref counts
                 tarr[i] = arr[i];
@@ -39,7 +39,7 @@ struct DynArray
             arr = tarr;
         }
         assert(size < capacity);
-        arr[size] = val;
+        arr[size] = val; // todo: use placement new instead of copy
         size++;
     }
 
@@ -89,7 +89,7 @@ struct DynArray
         capacity = rhs.capacity;
         // make deep copy
         arr = new T[rhs.capacity];
-        for (int i = 0; i < rhs.size; i++)
+        for (uint i = 0; i < rhs.size; i++)
         {
             // loop to not mess up com object ref counts
             arr[i] = rhs.arr[i];

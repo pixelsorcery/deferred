@@ -1,4 +1,3 @@
-#include <vector>
 #include <string>
 #include <algorithm>
 
@@ -77,9 +76,10 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
 
         if (pCurNode->matrix.size() > 0)
         {
-            // todo: fix compiler complaint about this conversion
-            vector<float> floatMat(pCurNode->matrix.begin(), pCurNode->matrix.end());
-            memcpy(glm::value_ptr(localMatrix), &floatMat[0], sizeof(float) * floatMat.size());
+            for (uint i = 0; i < pCurNode->matrix.size(); i++)
+            {
+                localMatrix[i/4][i%4] = static_cast<float>(pCurNode->matrix[i]);
+            }
             localMatrix = matrix * localMatrix;
         }
 
@@ -511,7 +511,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
     glm::mat4* ptr = model.pCpuConstantBuffer.get();
     glm::mat4* worldPtr = model.pCpuConstantBuffer2.get();
 
-    for (int i = 0; i < model.sceneNodes.size; i++)
+    for (uint i = 0; i < model.sceneNodes.size; i++)
     {
         // update normal matrix
         *worldPtr = model.sceneNodes[i].transformation;
