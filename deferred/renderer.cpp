@@ -8,6 +8,18 @@
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 
+// taken from https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
+// see: https://thxforthefish.com/posts/reverse_z/
+// also: http://dev.theomader.com/depth-precision/
+glm::mat4 MakeInfReversedZProjRH(float fovY_radians, float aspectWbyH, float zNear)
+{
+    float f = 1.0f / tan(fovY_radians / 2.0f);
+    return glm::mat4(f / aspectWbyH, 0.0f, 0.0f, 0.0f,
+                     0.0f, f, 0.0f, 0.0f,
+                     0.0f, 0.0f, 0.0f, -1.0f,
+                     0.0f, 0.0f, zNear, 0.0f);
+}
+
 bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 {
     HRESULT hr = S_OK;
@@ -259,10 +271,15 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     pRenderer->dsDescHandle = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]->GetCPUDescriptorHandleForHeapStart();
     pDevice->CreateDepthStencilView(pRenderer->depthStencil, &dsvDesc, pRenderer->dsDescHandle);
 
+    // init view
     pRenderer->camera.init(glm::vec3(0.0f, 20.0f, 30.0f), // eye
                            glm::vec3(0.0f, 0.0f, 0.0f),   // center
                            glm::vec3(0.0f, 1.0f, 0.0f));  // up
 
+    // init perspective projection matrix 
+    pRenderer->projection = MakeInfReversedZProjRH(glm::radians((float)renderer::fov), 
+                                                   (float)renderer::width / (float)renderer::height,
+                                                   0.1f);
     return true;
 }
 

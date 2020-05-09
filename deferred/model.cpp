@@ -51,17 +51,6 @@ void dbgModel(tinygltf::Model& model) {
 }
 #endif
 
-// taken from https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
-glm::mat4 MakeInfReversedZProjRH(float fovY_radians, float aspectWbyH, float zNear)
-{
-    float f = 1.0f / tan(fovY_radians / 2.0f);
-    return glm::mat4(
-        f / aspectWbyH, 0.0f, 0.0f, 0.0f,
-        0.0f, f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, -1.0f,
-        0.0f, 0.0f, zNear, 0.0f);
-}
-
 void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
 {
     if (nodes.empty()) return;
@@ -86,7 +75,7 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
         if (pCurNode->scale.size() > 0)
         {
             // scale matrix
-            glm::mat4 S(pCurNode->scale.size());
+            glm::mat4 S(1.0f);
             for (uint j = 0; j < pCurNode->scale.size(); j++)
             {
                 S[j/4][j%4] = static_cast<float>(pCurNode->scale[j]);
@@ -96,7 +85,7 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
         if (pCurNode->rotation.size() > 0)
         {
             // rotate
-            glm::mat4 R(pCurNode->rotation.size());
+            glm::mat4 R(1.0f);
             for (uint j = 0; j < pCurNode->rotation.size(); j++)
             {
                 R[j / 4][j % 4] = static_cast<float>(pCurNode->rotation[j]);
@@ -106,7 +95,7 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
         if (pCurNode->translation.size() > 0)
         {
             // translate
-            glm::mat4 T(pCurNode->translation.size());
+            glm::mat4 T(1.0f);
             for (uint j = 0; j < pCurNode->translation.size(); j++)
             {
                 T[j / 4][j % 4] = static_cast<float>(pCurNode->translation[j]);
@@ -132,6 +121,10 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     tinygltf::TinyGLTF loader;
     std::string err;
     std::string warn;
+
+    model.worldPosition = glm::vec4(0.0f);
+    model.worldScale    = glm::vec4(0.0f);
+    model.worldRotation = glm::vec4(0.0f);
 
     bool res = loader.LoadASCIIFromFile(&model.TinyGltfModel, &err, &warn, filename);
 
@@ -447,11 +440,6 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     // initialize all mesh world positions using scene hierarchy
     transformNodes(model, scene.nodes, initWorldMatrix);
 
-    // view projection
-    model.view = pRenderer->camera.lookAt();
-
-    model.proj = MakeInfReversedZProjRH(glm::radians(45.0f), (float)renderer::width / (float)renderer::height, 0.1f);
-
     //glm::mat4 scale = glm::scale(glm::vec3(0.05));
     // create constant heap for matrices
     model.alignedMatrixSize = ((sizeof(glm::mat4) + 255) & ~255);
@@ -473,11 +461,11 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     {
         // update buffer // todo move this to draw time
         *worldPtr = model.sceneNodes[i].transformation;
-        *worldPtr = model.view * *worldPtr;
+        *worldPtr = pRenderer->camera.lookAt() * *worldPtr;
         worldPtr += model.alignedMatrixSize / sizeof(glm::mat4);
 
         *ptr = model.sceneNodes[i].transformation;
-        *ptr = model.proj * model.view * *ptr;
+        *ptr = pRenderer->projection * pRenderer->camera.lookAt() * *ptr;
         ptr += model.alignedMatrixSize / sizeof(glm::mat4);
 
         model.cb0Ptrs.push(bufferAddress);
@@ -495,12 +483,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
 #if defined(_DEBUG)
     dbgModel(*pModel);
-#endif 
-
-    // create a descriptor table for cbv and srv
-    //D3D12_DESCRIPTOR_RANGE descRanges[2] = { cbvRange, srvRange };
-    //model.DescriptorTable.NumDescriptorRanges = cbvRange.NumDescriptors + srvRange.NumDescriptors;
-    //model.DescriptorTable.pDescriptorRanges = descRanges;
+#endif
 
     return res;
 }
@@ -533,12 +516,12 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
     {
         // update normal matrix
         *worldPtr = model.sceneNodes[i].transformation;
-        *worldPtr = model.view * *worldPtr;
+        *worldPtr = pRenderer->camera.lookAt() * *worldPtr;
         *worldPtr = glm::inverseTranspose(*worldPtr);
         worldPtr += model.alignedMatrixSize / sizeof(glm::mat4);
 
         *ptr = model.sceneNodes[i].transformation;
-        *ptr = model.proj * model.view * *ptr;
+        *ptr = pRenderer->projection * pRenderer->camera.lookAt() * *ptr;
         ptr += model.alignedMatrixSize / sizeof(glm::mat4);
     }
 

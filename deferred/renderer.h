@@ -7,6 +7,7 @@
 #include "settings.h"
 #include "util.h"
 #include "camera.h"
+#include "glm/glm.hpp"
 
 struct CmdSubmission
 {
@@ -101,6 +102,8 @@ struct Dx12Renderer
     ID3D12GraphicsCommandList* GetCurrentCmdList(){ return cmdSubmissions[currentSubmission].pGfxCmdList; };
 
     Camera camera;
+
+    glm::mat4 projection;
 
     ~Dx12Renderer();
 };

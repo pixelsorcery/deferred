@@ -61,8 +61,6 @@ struct GltfModel
     std::unique_ptr<glm::mat4[]>              pCpuConstantBuffer; // todo make this upload heap
     std::unique_ptr<glm::mat4[]>              pCpuConstantBuffer2; // inverse transpose normal matrix todo make this upload heap
     int                                       alignedMatrixSize;
-    glm::mat4                                 view;
-    glm::mat4                                 proj;
     DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb0Ptrs; // todo refactor this, use buffer manager
     DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb1Ptrs;
     glm::vec4                                 worldScale;
