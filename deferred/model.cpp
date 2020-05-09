@@ -76,9 +76,9 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
 
         if (pCurNode->matrix.size() > 0)
         {
-            for (uint i = 0; i < pCurNode->matrix.size(); i++)
+            for (uint j = 0; j < pCurNode->matrix.size(); j++)
             {
-                localMatrix[i/4][i%4] = static_cast<float>(pCurNode->matrix[i]);
+                localMatrix[j/4][j%4] = static_cast<float>(pCurNode->matrix[j]);
             }
             localMatrix = matrix * localMatrix;
         }
@@ -86,14 +86,32 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
         if (pCurNode->scale.size() > 0)
         {
             // scale matrix
+            glm::mat4 S(pCurNode->scale.size());
+            for (uint j = 0; j < pCurNode->scale.size(); j++)
+            {
+                S[j/4][j%4] = static_cast<float>(pCurNode->scale[j]);
+            }
+            localMatrix = S * localMatrix;
         }
         if (pCurNode->rotation.size() > 0)
         {
             // rotate
+            glm::mat4 R(pCurNode->rotation.size());
+            for (uint j = 0; j < pCurNode->rotation.size(); j++)
+            {
+                R[j / 4][j % 4] = static_cast<float>(pCurNode->rotation[j]);
+            }
+            localMatrix = R * localMatrix;
         }
         if (pCurNode->translation.size() > 0)
         {
             // translate
+            glm::mat4 T(pCurNode->translation.size());
+            for (uint j = 0; j < pCurNode->translation.size(); j++)
+            {
+                T[j / 4][j % 4] = static_cast<float>(pCurNode->translation[j]);
+            }
+            localMatrix = T * localMatrix;
         }
 
         // apply to mesh if we have one
