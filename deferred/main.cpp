@@ -90,7 +90,7 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
         }
 
         std::chrono::steady_clock::time_point newTime = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> deltaTime = newTime - oldTime;
+        std::chrono::duration<float> deltaTime = newTime - oldTime;
 
         // render frame
         app2->drawFrame(deltaTime/1s);

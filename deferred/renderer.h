@@ -6,6 +6,7 @@
 #include <vector>
 #include "settings.h"
 #include "util.h"
+#include "camera.h"
 
 struct CmdSubmission
 {
@@ -59,13 +60,13 @@ struct DescriptorHeap
 
 struct Dx12Renderer
 {
-    CComPtr<IDXGISwapChain3>           pSwapChain;
-    CComPtr<ID3D12Device>              pDevice;
-    CComPtr<ID3D12CommandQueue>        pCommandQueue;
-    CComPtr<ID3D12Fence>               pSubmitFence;
+    CComPtr<IDXGISwapChain3>      pSwapChain;
+    CComPtr<ID3D12Device>         pDevice;
+    CComPtr<ID3D12CommandQueue>   pCommandQueue;
+    CComPtr<ID3D12Fence>          pSubmitFence;
 #if defined(_DEBUG)
-    CComPtr<ID3D12Debug>               debugController;
-    CComPtr<ID3D12DebugDevice>         debugDevice;
+    CComPtr<ID3D12Debug>          debugController;
+    CComPtr<ID3D12DebugDevice>    debugDevice;
 #endif
     HANDLE                        fenceEvent;
     CComPtr<ID3D12DescriptorHeap> rtvHeap;
@@ -98,6 +99,8 @@ struct Dx12Renderer
     CComPtr<ID3D12Resource> cbvSrvUavUploadHeaps[renderer::swapChainBufferCount];
 
     ID3D12GraphicsCommandList* GetCurrentCmdList(){ return cmdSubmissions[currentSubmission].pGfxCmdList; };
+
+    Camera camera;
 
     ~Dx12Renderer();
 };

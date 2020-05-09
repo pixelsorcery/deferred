@@ -26,7 +26,7 @@ bool App2::init(HWND hwnd)
     return result;
 }
 
-void App2::drawFrame(double time)
+void App2::drawFrame(float time)
 {
     // clear
     HRESULT hr = S_OK;

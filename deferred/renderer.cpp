@@ -259,7 +259,9 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     pRenderer->dsDescHandle = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]->GetCPUDescriptorHandleForHeapStart();
     pDevice->CreateDepthStencilView(pRenderer->depthStencil, &dsvDesc, pRenderer->dsDescHandle);
 
-    //transitionResource(pRenderer, pRenderer->depthStencil, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+    pRenderer->camera.init(glm::vec3(0.0f, 20.0f, 30.0f), // eye
+                           glm::vec3(0.0f, 0.0f, 0.0f),   // center
+                           glm::vec3(0.0f, 1.0f, 0.0f));  // up
 
     return true;
 }

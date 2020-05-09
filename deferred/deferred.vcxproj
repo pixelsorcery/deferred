@@ -120,6 +120,7 @@
   <ItemGroup>
     <ClCompile Include="app.cpp" />
     <ClCompile Include="app2.cpp" />
+    <ClCompile Include="camera.cpp" />
     <ClCompile Include="heaps.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="model.cpp" />
@@ -132,6 +133,7 @@
   <ItemGroup>
     <ClInclude Include="app.h" />
     <ClInclude Include="app2.h" />
+    <ClInclude Include="camera.h" />
     <ClInclude Include="dynArray.h" />
     <ClInclude Include="gltfHelper.h" />
     <ClInclude Include="heapMgr.h" />

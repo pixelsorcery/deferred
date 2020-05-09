@@ -430,9 +430,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     transformNodes(model, scene.nodes, initWorldMatrix);
 
     // view projection
-    model.view = glm::lookAt(glm::vec3(0.0f, 20.0f, 30.0f), // eye
-                             glm::vec3(0.0f, 0.0f, 0.0f),   // center
-                             glm::vec3(0.0f, 1.0f, 0.0f));  // up
+    model.view = pRenderer->camera.lookAt();
 
     model.proj = MakeInfReversedZProjRH(glm::radians(45.0f), (float)renderer::width / (float)renderer::height, 0.1f);
 
@@ -453,7 +451,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     D3D12_GPU_VIRTUAL_ADDRESS bufferAddress = model.ConstantBuffer->GetGPUVirtualAddress();
     D3D12_GPU_VIRTUAL_ADDRESS bufferAddress2 = model.ConstantBuffer2->GetGPUVirtualAddress();
 
-    for (int i = 0; i < model.sceneNodes.size; i++)
+    for (uint i = 0; i < model.sceneNodes.size; i++)
     {
         // update buffer // todo move this to draw time
         *worldPtr = model.sceneNodes[i].transformation;
@@ -489,7 +487,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     return res;
 }
 
-void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
+void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
 {
     ID3D12Device* pDevice = pRenderer->pDevice;
     ID3D12GraphicsCommandList* pCmdList = pRenderer->cmdSubmissions[pRenderer->currentSubmission].pGfxCmdList;
@@ -501,7 +499,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt)
 
     vector<int> curNodes = scene.nodes;
     glm::mat4 initWorldMatrix = glm::mat4(1.0);
-    static float angle = 0.1;
+    static float angle = 0.1f;
     angle += dt;
 
     model.sceneNodes.erase();

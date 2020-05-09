@@ -12,7 +12,7 @@
 struct GltfModel;
 
 bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename);
-void drawModel(Dx12Renderer* pRenderer, GltfModel& model, double dt);
+void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt);
 
 struct Prim
 {
@@ -63,6 +63,9 @@ struct GltfModel
     int                                       alignedMatrixSize;
     glm::mat4                                 view;
     glm::mat4                                 proj;
-    DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb0Ptrs;
+    DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb0Ptrs; // todo refactor this, use buffer manager
     DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb1Ptrs;
+    glm::vec4                                 worldScale;
+    glm::vec4                                 worldRotation;
+    glm::vec4                                 worldPosition;
 };

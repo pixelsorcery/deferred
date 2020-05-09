@@ -17,7 +17,7 @@ class App2
 public:
     App2();
     bool init(HWND hwnd);
-    void drawFrame(double time);
+    void drawFrame(float time);
 private:
     std::unique_ptr<Dx12Renderer> pRenderer;
     GltfModel                     Model;
