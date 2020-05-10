@@ -10,19 +10,24 @@ using namespace std;
 
 App2* app2 = new App2();
 
-App2::App2() : pRenderer(new Dx12Renderer()) {};
+App2::App2() : pRenderer(new Dx12Renderer()) 
+{};
 
 bool App2::init(HWND hwnd)
 {
+    bool result = true;
     initDevice(pRenderer.get(), hwnd);
 
     ID3D12Device* pDevice = pRenderer->pDevice;
 
     // load model
-    //bool result = loadModel(pRenderer.get(), Model, "..\\models\\BoxTextured.gltf");
-    //bool result = loadModel(pRenderer.get(), Model, "..\\models\\duck\\Duck.gltf");
-    bool result = loadModel(pRenderer.get(), Model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
-    //bool result = loadModel(pRenderer.get(), Model, "..\\models\\lantern\\lantern.gltf");
+    GltfModel model = {};
+    //GltfModel model2 = model;
+    //result = loadModel(pRenderer.get(), boxModel, "..\\models\\BoxTextured.gltf");
+    //result = loadModel(pRenderer.get(), duckModel, "..\\models\\duck\\Duck.gltf");
+    result = loadModel(pRenderer.get(), model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
+    models.push_back(model);
+    //result = loadModel(pRenderer.get(), lanternModel, "..\\models\\lantern\\lantern.gltf");
     return result;
 }
 
@@ -48,8 +53,11 @@ void App2::drawFrame(float time)
     pCmdList->RSSetViewports(1, &pRenderer->defaultViewport);
     pCmdList->RSSetScissorRects(1, &pRenderer->defaultScissor);
 
-    // draw model
-    drawModel(pRenderer.get(), Model, time);
+    // draw models
+    for (int i = 0; i < models.size(); i++)
+    {
+        drawModel(pRenderer.get(), models[i], time);
+    }
 
     // exec cmd buffer
     transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->currentSubmission], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);

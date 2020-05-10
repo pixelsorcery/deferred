@@ -58,12 +58,12 @@ struct GltfModel
     uint                                      ConstantBufferIncrement;
     DynArray<Mesh>                            meshes;
     DynArray<SceneNode>                       sceneNodes;
-    std::unique_ptr<glm::mat4[]>              pCpuConstantBuffer; // todo make this upload heap
-    std::unique_ptr<glm::mat4[]>              pCpuConstantBuffer2; // inverse transpose normal matrix todo make this upload heap
+    std::shared_ptr<char[]>                   pCpuConstantBuffer; // todo make this upload heap
+    std::shared_ptr<char[]>                   pCpuConstantBuffer2; // inverse transpose normal matrix todo make this upload heap
     int                                       alignedMatrixSize;
     DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb0Ptrs; // todo refactor this, use buffer manager
     DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb1Ptrs;
-    glm::vec4                                 worldScale;
-    glm::vec4                                 worldRotation;
-    glm::vec4                                 worldPosition;
+    glm::vec3                                 worldScale;
+    glm::vec3                                 worldRotation;
+    glm::vec3                                 worldPosition;
 };

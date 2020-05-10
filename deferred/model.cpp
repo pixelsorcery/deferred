@@ -88,7 +88,7 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
             glm::mat4 R(1.0f);
             for (uint j = 0; j < pCurNode->rotation.size(); j++)
             {
-                R[j / 4][j % 4] = static_cast<float>(pCurNode->rotation[j]);
+                R[j/4][j%4] = static_cast<float>(pCurNode->rotation[j]);
             }
             localMatrix = R * localMatrix;
         }
@@ -98,7 +98,7 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
             glm::mat4 T(1.0f);
             for (uint j = 0; j < pCurNode->translation.size(); j++)
             {
-                T[j / 4][j % 4] = static_cast<float>(pCurNode->translation[j]);
+                T[j/4][j%4] = static_cast<float>(pCurNode->translation[j]);
             }
             localMatrix = T * localMatrix;
         }
@@ -122,9 +122,9 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     std::string err;
     std::string warn;
 
-    model.worldPosition = glm::vec4(0.0f);
-    model.worldScale    = glm::vec4(0.0f);
-    model.worldRotation = glm::vec4(0.0f);
+    model.worldPosition = glm::vec3(0.0f);
+    model.worldScale    = glm::vec3(1.0f);
+    model.worldRotation = glm::vec3(0.0f);
 
     bool res = loader.LoadASCIIFromFile(&model.TinyGltfModel, &err, &warn, filename);
 
@@ -448,11 +448,11 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     model.ConstantBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedMatrixSize, D3D12_RESOURCE_STATE_COPY_DEST);
     model.ConstantBuffer2 = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedMatrixSize, D3D12_RESOURCE_STATE_COPY_DEST);
 
-    model.pCpuConstantBuffer = make_unique<glm::mat4[]>(model.sceneNodes.size * model.alignedMatrixSize);
-    model.pCpuConstantBuffer2 = make_unique<glm::mat4[]>(model.sceneNodes.size * model.alignedMatrixSize);
+    model.pCpuConstantBuffer  = make_unique<char[]>(model.sceneNodes.size * model.alignedMatrixSize);
+    model.pCpuConstantBuffer2 = make_unique<char[]>(model.sceneNodes.size * model.alignedMatrixSize);
 
-    glm::mat4* ptr = model.pCpuConstantBuffer.get();
-    glm::mat4* worldPtr = model.pCpuConstantBuffer2.get();
+    glm::mat4* ptr      = reinterpret_cast<glm::mat4*>(model.pCpuConstantBuffer.get());
+    glm::mat4* worldPtr = reinterpret_cast<glm::mat4*>(model.pCpuConstantBuffer2.get());
 
     D3D12_GPU_VIRTUAL_ADDRESS bufferAddress = model.ConstantBuffer->GetGPUVirtualAddress();
     D3D12_GPU_VIRTUAL_ADDRESS bufferAddress2 = model.ConstantBuffer2->GetGPUVirtualAddress();
@@ -509,8 +509,8 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
     initWorldMatrix = glm::rotate(initWorldMatrix, angle, glm::vec3(1.0f, 1.0f, 1.0f));
     transformNodes(model, scene.nodes, initWorldMatrix);
 
-    glm::mat4* ptr = model.pCpuConstantBuffer.get();
-    glm::mat4* worldPtr = model.pCpuConstantBuffer2.get();
+    glm::mat4* ptr      = reinterpret_cast<glm::mat4*>(model.pCpuConstantBuffer.get());
+    glm::mat4* worldPtr = reinterpret_cast<glm::mat4*>(model.pCpuConstantBuffer2.get());
 
     for (uint i = 0; i < model.sceneNodes.size; i++)
     {

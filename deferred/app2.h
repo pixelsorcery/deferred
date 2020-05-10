@@ -20,5 +20,5 @@ public:
     void drawFrame(float time);
 private:
     std::unique_ptr<Dx12Renderer> pRenderer;
-    GltfModel                     Model;
+    std::vector<GltfModel>        models;
 };

@@ -11,7 +11,7 @@
 // taken from https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
 // see: https://thxforthefish.com/posts/reverse_z/
 // also: http://dev.theomader.com/depth-precision/
-glm::mat4 MakeInfReversedZProjRH(float fovY_radians, float aspectWbyH, float zNear)
+static glm::mat4 MakeInfReversedZProjRH(float fovY_radians, float aspectWbyH, float zNear)
 {
     float f = 1.0f / tan(fovY_radians / 2.0f);
     return glm::mat4(f / aspectWbyH, 0.0f, 0.0f, 0.0f,
