@@ -505,8 +505,9 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
 
     model.sceneNodes.erase();
 
-    initWorldMatrix = glm::scale(initWorldMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
+    initWorldMatrix = glm::translate(initWorldMatrix, model.worldPosition);
     initWorldMatrix = glm::rotate(initWorldMatrix, angle, glm::vec3(1.0f, 1.0f, 1.0f));
+    initWorldMatrix = glm::scale(initWorldMatrix, model.worldScale);
     transformNodes(model, scene.nodes, initWorldMatrix);
 
     glm::mat4* ptr      = reinterpret_cast<glm::mat4*>(model.pCpuConstantBuffer.get());
@@ -555,7 +556,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
 
     if (model.Textures.size() > 0)
     {
-        pCmdList->SetGraphicsRootDescriptorTable(1, srvTableStart);
+        pCmdList->SetGraphicsRootDescriptorTable(2, srvTableStart);
     }
 
     pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

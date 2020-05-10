@@ -62,7 +62,7 @@ struct DynArray
         }
     }
 
-    DynArray(DynArray&& other)
+    DynArray(DynArray&& other) noexcept
     {
         size = other.size;
         capacity = other.capacity;
@@ -88,6 +88,7 @@ struct DynArray
 
     DynArray& operator=(const DynArray&& rhs)
     {
+        assert(0); // not tested
         size = rhs.size;
         capacity = rhs.capacity;
         arr = std::move(rhs.arr);

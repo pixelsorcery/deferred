@@ -21,13 +21,24 @@ bool App2::init(HWND hwnd)
     ID3D12Device* pDevice = pRenderer->pDevice;
 
     // load model
+    GltfModel box = {};
+    GltfModel duck = {};
     GltfModel model = {};
-    //GltfModel model2 = model;
-    //result = loadModel(pRenderer.get(), boxModel, "..\\models\\BoxTextured.gltf");
-    //result = loadModel(pRenderer.get(), duckModel, "..\\models\\duck\\Duck.gltf");
+    GltfModel lantern = {};
+    result = loadModel(pRenderer.get(), box, "..\\models\\BoxTextured.gltf");
+    box.worldScale = glm::vec3(10.0f, 10.0f, 10.0f);
+    box.worldPosition = glm::vec3(-25.0f, -15.0f, 0.0f);
+    models.push_back(box);
+    result = loadModel(pRenderer.get(), duck, "..\\models\\duck\\Duck.gltf");
+    duck.worldScale = glm::vec3(5.0f, 5.0f, 5.0f);
+    duck.worldPosition = glm::vec3(-20.0f, 15.0f, 0.0f);
+    models.push_back(duck);
     result = loadModel(pRenderer.get(), model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
+    model.worldScale = glm::vec3(0.03f, 0.03f, 0.03f);
+    model.worldPosition = glm::vec3(15.0f, 15.0f, 0.0f);
     models.push_back(model);
-    //result = loadModel(pRenderer.get(), lanternModel, "..\\models\\lantern\\lantern.gltf");
+    //result = loadModel(pRenderer.get(), lantern, "..\\models\\lantern\\lantern.gltf");
+    //models.push_back(lantern);
     return result;
 }
 
