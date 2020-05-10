@@ -2,6 +2,7 @@
 #include <memory>
 #include "util.h"
 
+// Note: T's destructor will not always be invoked
 template <class T>
 struct DynArray
 {
@@ -10,92 +11,56 @@ struct DynArray
         arr = std::make_unique<T[]>(capacity);
     };
 
-    ~DynArray()
+    DynArray(const DynArray& other) : size(other.size), capacity(other.capacity)
     {
+        // make deep copy
+        arr = std::make_unique<T[]>(other.capacity);
+        std::copy(std::begin(other.arr), std::end(other.arr), std::begin(arr));
     }
 
-    T& operator[] (const uint idx) const
+    DynArray(DynArray&& other) noexcept = default;
+
+    DynArray& operator=(const DynArray& rhs)
+    {
+        size = rhs.size;
+        if (arr == nullptr || capacity < rhs.capacity)
+        {
+            capacity = rhs.capacity;
+            arr = std::make_unique<T[]>(rhs.capacity);
+        }
+        // make deep copy
+        std::copy(std::begin(rhs.arr), std::end(rhs.arr), std::begin(arr));
+        return *this;
+    }
+
+    DynArray& operator=(const DynArray&& rhs) = default;
+
+    ~DynArray() = default;
+
+    T& operator[](const uint idx) const
     {
         assert(idx < capacity);
         return arr[idx];
     }
 
-    void push(T& val)
+    void push(T val)
     {
         if (size == capacity)
         {
             // resize
             capacity *= 2;
             std::unique_ptr<T[]> tarr = std::make_unique<T[]>(capacity);
-            for (uint i = 0; i < size; i++)
-            {
-                // loop to not mess up com object ref counts
-                tarr[i] = arr[i];
-            }
+            std::move(std::begin(arr), std::end(arr), std::begin(tarr));
             arr = std::move(tarr);
         }
         assert(size < capacity);
-        arr[size] = val; // todo: use placement new
+        arr[size] = std::move(val);
         size++;
     }
 
     void erase()
     {
-        if (arr != nullptr)
-        {
-            size = 0;
-            capacity = 16;
-            arr = std::make_unique<T[]>(capacity);
-        }
-    }
-
-    DynArray(const DynArray& other)
-    {
-        size = other.size;
-        capacity = other.capacity;
-        // make deep copy
-        arr = std::make_unique<T[]>(other.capacity);
-
-        for (uint i = 0; i < other.size; i++)
-        {
-            arr[i] = other.arr[i];
-        }
-    }
-
-    DynArray(DynArray&& other) noexcept
-    {
-        size = other.size;
-        capacity = other.capacity;
-        arr = std::move(other.arr);
-        other.arr = nullptr;
-        other.capacity = 0;
-        other.size = 0;
-    }
-
-    DynArray& operator=(const DynArray& rhs)
-    {
-        assert(arr != nullptr);
-        size = rhs.size;
-        capacity = rhs.capacity;
-        // make deep copy
-        arr = std::make_unique<T[]>(rhs.capacity);
-        for (uint i = 0; i < rhs.size; i++)
-        {
-            arr[i] = rhs.arr[i];
-        }
-        return *this;
-    }
-
-    DynArray& operator=(const DynArray&& rhs)
-    {
-        assert(0); // not tested
-        size = rhs.size;
-        capacity = rhs.capacity;
-        arr = std::move(rhs.arr);
-        rhs.arr = nullptr;
-        rhs.capacity = 0;
-        rhs.size = 0;
-        return *this;
+        size = 0;
     }
 
     std::unique_ptr<T[]> arr;
