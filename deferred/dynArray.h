@@ -15,10 +15,19 @@ struct DynArray
     {
         // make deep copy
         arr = std::make_unique<T[]>(other.capacity);
-        std::copy(std::begin(other.arr), std::end(other.arr), std::begin(arr));
+        for (uint i = 0; i < other.size; i++)
+        {
+            arr[i] = other[i];
+        }
     }
 
-    DynArray(DynArray&& other) noexcept = default;
+    DynArray(DynArray&& other) noexcept : 
+        size(other.size),
+        capacity(other.capacity),
+        arr(std::move(other.arr))
+    {
+
+    }
 
     DynArray& operator=(const DynArray& rhs)
     {
@@ -29,11 +38,14 @@ struct DynArray
             arr = std::make_unique<T[]>(rhs.capacity);
         }
         // make deep copy
-        std::copy(std::begin(rhs.arr), std::end(rhs.arr), std::begin(arr));
+        for (uint i = 0; i < rhs.size; i++)
+        {
+            arr[i] = rhs[i];
+        }
         return *this;
     }
 
-    DynArray& operator=(const DynArray&& rhs) = default;
+    //DynArray& operator=(const DynArray&& rhs) = default;
 
     ~DynArray() = default;
 
@@ -50,7 +62,10 @@ struct DynArray
             // resize
             capacity *= 2;
             std::unique_ptr<T[]> tarr = std::make_unique<T[]>(capacity);
-            std::move(std::begin(arr), std::end(arr), std::begin(tarr));
+            for (uint i = 0; i < size; i++)
+            {
+                tarr[i] = arr[i];
+            }
             arr = std::move(tarr);
         }
         assert(size < capacity);
@@ -63,7 +78,7 @@ struct DynArray
         size = 0;
     }
 
-    std::unique_ptr<T[]> arr;
-    uint capacity;
     uint size;
+    uint capacity;
+    std::unique_ptr<T[]> arr;
 };
