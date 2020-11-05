@@ -1,51 +1,36 @@
 /*AMDG*/
 #include "glm/vec3.hpp"
 #include "glm/vec2.hpp"
-#include "app2.h"
+#include "app3.h"
 #include "util.h"
 #include "shaders.h"
 #include "gltfHelper.h"
 
 using namespace std;
 
-App2* app2 = new App2();
+App3* app3 = new App3();
 
-App2::App2() : pRenderer(new Dx12Renderer()) 
+App3::App3() : pRenderer(new Dx12Renderer())
 {};
 
-bool App2::init(HWND hwnd)
+bool App3::init(HWND hwnd)
 {
     bool result = true;
     initDevice(pRenderer.get(), hwnd);
 
     ID3D12Device* pDevice = pRenderer->pDevice;
 
-    // load model
-    GltfModel box = {};
-    GltfModel duck = {};
-    GltfModel model = {};
-    GltfModel lantern = {};
-    result = loadModel(pRenderer.get(), box, "..\\models\\BoxTextured.gltf");
-    box.worldScale = glm::vec3(10.0f, 10.0f, 10.0f);
-    box.worldPosition = glm::vec3(-25.0f, -15.0f, 0.0f);
-    models.push_back(box);
-    result = loadModel(pRenderer.get(), duck, "..\\models\\duck\\Duck.gltf");
-    duck.worldScale = glm::vec3(5.0f, 5.0f, 5.0f);
-    duck.worldPosition = glm::vec3(-20.0f, 15.0f, 0.0f);
-    models.push_back(duck);
-    result = loadModel(pRenderer.get(), model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
-    model.worldScale = glm::vec3(0.03f, 0.03f, 0.03f);
-    model.worldPosition = glm::vec3(15.0f, 15.0f, 0.0f);
-    models.push_back(model);
-    //result = loadModel(pRenderer.get(), lantern, "..\\models\\lantern\\lantern.gltf");
-    //models.push_back(lantern);
-
-    //result = initEffect(pRenderer.get(), &sunset, "fullscreentri.hlsl", "sunset.hlsl");
+    result = initEffect(pRenderer.get(), &sunset, "fullscreentri.hlsl", "sunset.hlsl");
+    
+    if (result == true)
+    {
+        result = initEffect(pRenderer.get(), &road, "fullscreentri.hlsl", "roadGrid.hlsl");
+    }
 
     return result;
 }
 
-void App2::drawFrame(float time)
+void App3::drawFrame(float time)
 {
     // clear
     HRESULT hr = S_OK;
@@ -68,14 +53,8 @@ void App2::drawFrame(float time)
     pCmdList->RSSetScissorRects(1, &pRenderer->defaultScissor);
 
     // draw sunset
-    //renderEffect(pRenderer.get(), &sunset);
-
-    // draw models
-    for (int i = 0; i < models.size(); i++)
-    {
-        drawModel(pRenderer.get(), models[i], time);
-    }
-
+    renderEffect(pRenderer.get(), &sunset);
+    renderEffect(pRenderer.get(), &road);
     // exec cmd buffer
     transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->currentSubmission], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
     submitCmdBuffer(pRenderer.get());

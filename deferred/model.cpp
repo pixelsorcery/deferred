@@ -206,7 +206,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         D3D12_CPU_DESCRIPTOR_HANDLE descHandle = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
         pDevice->CreateShaderResourceView(model.Textures[i].pRes, &srvDesc, descHandle);
 
-        descHandle.ptr += pRenderer->cbvSrvUavDescriptorSize;
+        descHandle.ptr += pRenderer->heapMgr.descriptorSizes[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     }
 
     // Create root signature for model
@@ -538,21 +538,17 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
     // set root sig
     pCmdList->SetGraphicsRootSignature(model.pRootSignature);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE dest = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetCPUDescriptorHandleForHeapStart();
-    dest.ptr += pRenderer->cbvSrvUavDescriptorSize;
+    //D3D12_CPU_DESCRIPTOR_HANDLE dest = pRenderer->heapMgr.mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetCPUDescriptorHandleForHeapStart();
+    //dest.ptr += pRenderer->cbvSrvUavDescriptorSize;
 
-    D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart;
+	D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart = {};
     if (model.Textures.size() > 0)
     {
         D3D12_CPU_DESCRIPTOR_HANDLE src = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+        srvTableStart = pRenderer->heapMgr.copyDescriptorsToGpuHeap(pDevice, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, src, model.Textures.size());
+	}
 
-        srvTableStart = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetGPUDescriptorHandleForHeapStart();
-        srvTableStart.ptr += pRenderer->cbvSrvUavDescriptorSize;
-        // copy descriptor to heap
-        pDevice->CopyDescriptorsSimple(1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    }
-
-    pCmdList->SetDescriptorHeaps(1, &pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].p);
+    pCmdList->SetDescriptorHeaps(1, &pRenderer->heapMgr.mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].p);
 
     if (model.Textures.size() > 0)
     {

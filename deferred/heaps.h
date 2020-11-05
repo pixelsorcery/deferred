@@ -9,7 +9,7 @@ public:
     void Reset();
 
     // Copy data to heap
-    void uploadData(ID3D12Resource* dest, int size, )
+    //void uploadData(ID3D12Resource* dest, int size, )
     // Mapped pointer
 private:
     CComPtr<ID3D12Resource>

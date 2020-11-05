@@ -196,32 +196,12 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     pRenderer->defaultViewport.MaxDepth = 1.0f;
     pRenderer->defaultViewport.MinDepth = 0.0f;
 
-    pRenderer->cbvSrvUavDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    pRenderer->rtvDescriptorSize       = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    pRenderer->dsvDescriptorSize       = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-
     // create gpu descriptor heaps
-    for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++)
+    hr = pRenderer->heapMgr.initializeHeaps(pDevice);
+
+    if (FAILED(hr))
     {
-        D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-        heapDesc.NumDescriptors = pRenderer->heapSizes[i];
-        heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-        heapDesc.Type = static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(i);
-
-        if (heapDesc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ||
-            heapDesc.Type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
-        {
-            heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        }
-
-        hr = pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pRenderer->mainDescriptorHeaps[i]));
-        if (FAILED(hr))
-        {
-            ErrorMsg("Descriptor heap creation failed.");
-            return false;
-        }
-
-        pRenderer->mainDescriptorHeaps[i]->SetName(heapTypeStrings[i]);
+        ErrorMsg("Failed to initialize heaps.");
     }
 
     // create cb upload heaps // todo make this one ring buffer
@@ -268,7 +248,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
     dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 
-    pRenderer->dsDescHandle = pRenderer->mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]->GetCPUDescriptorHandleForHeapStart();
+    pRenderer->dsDescHandle = pRenderer->heapMgr.mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]->GetCPUDescriptorHandleForHeapStart();
     pDevice->CreateDepthStencilView(pRenderer->depthStencil, &dsvDesc, pRenderer->dsDescHandle);
 
     // init view

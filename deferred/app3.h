@@ -2,7 +2,7 @@
 
 /**************************************************
 
-This app draws an unanimated gltf model.
+This app draws some stuff.
 
 **************************************************/
 
@@ -13,15 +13,14 @@ This app draws an unanimated gltf model.
 #include "model.h"
 #include "fsEffect.h"
 
-class App2
+class App3
 {
 public:
-    App2();
+    App3();
     bool init(HWND hwnd);
     void drawFrame(float time);
 private:
     std::unique_ptr<Dx12Renderer> pRenderer;
-    std::vector<GltfModel>        models;
     FsEffect                      sunset;
     FsEffect                      road;
 };

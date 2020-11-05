@@ -7,6 +7,7 @@
 #include "settings.h"
 #include "util.h"
 #include "camera.h"
+#include "heapMgr.h"
 #include "glm/glm.hpp"
 
 struct CmdSubmission
@@ -86,19 +87,12 @@ struct Dx12Renderer
 
     UINT64        submitCount;
 
-    UINT          cbvSrvUavDescriptorSize;
-    UINT          rtvDescriptorSize;
-    UINT          dsvDescriptorSize;
-
     static constexpr DXGI_FORMAT colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     static constexpr DXGI_FORMAT depthFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
-    // initial heap sizes
-    int heapSizes[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES] = { 128, 64, 64, 64 };
+    HeapMgr heapMgr;
 
-    CComPtr<ID3D12DescriptorHeap> mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
     CComPtr<ID3D12Resource> cbvSrvUavUploadHeaps[renderer::swapChainBufferCount];
-
     ID3D12GraphicsCommandList* GetCurrentCmdList(){ return cmdSubmissions[currentSubmission].pGfxCmdList; };
 
     Camera camera;

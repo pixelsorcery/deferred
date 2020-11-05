@@ -6,9 +6,11 @@
 #include "app.h"
 #include "model.h"
 #include "app2.h"
+#include "app3.h"
 
-extern App* app;
+extern App*  app;
 extern App2* app2;
+extern App3* app3;
 
 using namespace std::literals;
 

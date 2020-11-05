@@ -24,10 +24,7 @@ struct DynArray
     DynArray(DynArray&& other) noexcept : 
         size(other.size),
         capacity(other.capacity),
-        arr(std::move(other.arr))
-    {
-
-    }
+        arr(std::move(other.arr)) {}
 
     DynArray& operator=(const DynArray& rhs)
     {
@@ -44,8 +41,6 @@ struct DynArray
         }
         return *this;
     }
-
-    //DynArray& operator=(const DynArray&& rhs) = default;
 
     ~DynArray() = default;
 
