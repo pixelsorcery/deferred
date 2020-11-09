@@ -11,8 +11,11 @@
 #include "glm/gtx/transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtc/matrix_inverse.hpp"
+#include "shaders.h"
 
 using namespace std;
+
+extern std::vector<CComPtr<ID3DBlob>> shaders;
 
 #if defined(_DEBUG)
 #include <iostream>
@@ -284,18 +287,6 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         return false;
     }
 
-    // create shaders // todo add option for shaders
-    if (model.Textures.size() > 0)
-    {
-        model.pModelVs = compileShaderFromFile("boxTexturedVS.hlsl", "vs_5_1", "main");
-        model.pModelPs = compileShaderFromFile("boxTexturedPs.hlsl", "ps_5_1", "main");
-    }
-    else
-    {
-        model.pModelVs = compileShaderFromFile("untexturedModel.hlsl", "vs_5_1", "VS");
-        model.pModelPs = compileShaderFromFile("untexturedModel.hlsl", "ps_5_1", "PS");
-    }
-
     // Read in all buffers
     for (int i = 0; i < pModel->buffers.size(); i++)
     {
@@ -334,6 +325,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
             UINT numInputElements = 0;
             auto it = pModel->meshes[i].primitives[j].attributes.begin();
             semanticNames.resize(pModel->meshes[i].primitives[j].attributes.size());
+            bool hasTangent = false;
             for (int k = 0; k < pModel->meshes[i].primitives[j].attributes.size(); k++)
             {
                 tinygltf::Accessor accessor = pModel->accessors[it->second];
@@ -361,9 +353,14 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
                 D3D12_VERTEX_BUFFER_VIEW bufView = {};
                 bufView.BufferLocation = model.pBuffers[gltfBufView.buffer]->GetGPUVirtualAddress() + gltfBufView.byteOffset + accessor.byteOffset;
                 bufView.SizeInBytes = length;
-                bufView.StrideInBytes = static_cast<uint>(gltfBufView.byteStride);
+                bufView.StrideInBytes = GetStrideFromFormat(accessor.type, accessor.componentType); //static_cast<uint>(gltfBufView.byteStride);
 
                 prim.bufferViews.push(bufView);
+
+                if (strcmp(inputElementDescs[k].SemanticName, "TANGENT") == 0)
+                {
+                    hasTangent = true;
+                }
             }
 
             // create index buffer view
@@ -399,8 +396,8 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC modelPsoDesc = {};
             modelPsoDesc.pRootSignature = model.pRootSignature;
-            modelPsoDesc.VS = bytecodeFromBlob(model.pModelVs);
-            modelPsoDesc.PS = bytecodeFromBlob(model.pModelPs);
+            modelPsoDesc.VS = bytecodeFromBlob(hasTangent == true ? shaders[BUMP_MAPPED_VS] : model.NumTextures > 0 ? shaders[TEXTURED_VS] : shaders[UNTEXTURED_VS]);
+            modelPsoDesc.PS = bytecodeFromBlob(hasTangent == true ? shaders[BUMP_MAPPED_PS] : model.NumTextures > 0 ? shaders[TEXTURED_PS] : shaders[UNTEXTURED_PS]);
             modelPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
             modelPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
             modelPsoDesc.RasterizerState.DepthClipEnable = TRUE;
@@ -538,14 +535,12 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
     // set root sig
     pCmdList->SetGraphicsRootSignature(model.pRootSignature);
 
-    //D3D12_CPU_DESCRIPTOR_HANDLE dest = pRenderer->heapMgr.mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetCPUDescriptorHandleForHeapStart();
-    //dest.ptr += pRenderer->cbvSrvUavDescriptorSize;
-
 	D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart = {};
     if (model.Textures.size() > 0)
     {
         D3D12_CPU_DESCRIPTOR_HANDLE src = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-        srvTableStart = pRenderer->heapMgr.copyDescriptorsToGpuHeap(pDevice, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, src, model.Textures.size());
+        assert(model.Textures.size() < INT_MAX);
+        srvTableStart = pRenderer->heapMgr.copyDescriptorsToGpuHeap(pDevice, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, src, static_cast<int>(model.Textures.size()));
 	}
 
     pCmdList->SetDescriptorHeaps(1, &pRenderer->heapMgr.mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].p);

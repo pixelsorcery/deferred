@@ -6,6 +6,10 @@
 #include <assert.h>
 #include "util.h"
 #include "shaders.h"
+#include <vector>
+#include <atlbase.h>
+
+std::vector<CComPtr<ID3DBlob>> shaders;
 
 D3D12_SHADER_BYTECODE bytecodeFromBlob(ID3DBlob* blob)
 {
@@ -18,7 +22,7 @@ D3D12_SHADER_BYTECODE bytecodeFromBlob(ID3DBlob* blob)
 // read shader in from file
 ID3DBlob* compileShaderFromFile(char const* filename, char const* profile, char const* entrypt)
 {
-    ID3DBlob* code;
+    ID3DBlob* code = nullptr;
 
     std::string shaderText;
 
@@ -48,12 +52,10 @@ ID3DBlob* compileShaderFromFile(char const* filename, char const* profile, char 
 // compile shader
 ID3DBlob* compileSource(char const* source, char const* profile, char const* entrypt)
 {
-    ID3DBlob* code;
-    ID3DBlob* errors;
+    ID3DBlob* code   = nullptr;
+    ID3DBlob* errors = nullptr;
     HRESULT hr = D3DCompile(source, strlen(source), NULL, NULL, NULL, entrypt, profile, D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_DEBUG /*D3DCOMPILE_OPTIMIZATION_LEVEL3*/, 0,
         &code, &errors);
-
-    assert(SUCCEEDED(hr));
 
     if (errors)
     {
@@ -63,4 +65,19 @@ ID3DBlob* compileSource(char const* source, char const* profile, char const* ent
     }
 
     return code;
+}
+
+bool initShaders()
+{
+    for (int i = 0; i < SHADER_TYPES::NUM_SHADER_TYPES; i++)
+    {
+        ID3DBlob* shader = compileShaderFromFile(shaderStrings[i], ((i % 2 == 0) ? "vs_5_1" : "ps_5_1"), shaderMain[i]);
+        if (shader == nullptr)
+        {
+            return false;
+        }
+        shaders.push_back(shader);
+    }
+
+    return true;
 }

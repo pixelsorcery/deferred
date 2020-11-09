@@ -52,7 +52,6 @@ struct GltfModel
     CComPtr<ID3D12DescriptorHeap>             TextureDescriptorHeap;
     uint                                      NumDescriptors;
     D3D12_ROOT_DESCRIPTOR_TABLE               DescriptorTable;
-    CComPtr<ID3DBlob>                         pModelVs, pModelPs;
     CComPtr<ID3D12Resource>                   ConstantBuffer;
     CComPtr<ID3D12Resource>                   ConstantBuffer2;
     uint                                      ConstantBufferIncrement;

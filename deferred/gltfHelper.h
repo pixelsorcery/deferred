@@ -121,3 +121,62 @@ static DXGI_FORMAT GetFormat(int type, int id)
 
     return DXGI_FORMAT_UNKNOWN;
 }
+
+// TODO: verify these values
+static int GetStrideFromFormat(int type, int id)
+{
+    if (type == TINYGLTF_TYPE_SCALAR)
+    {
+        switch (id)
+        {
+        case 5120: return 1; //(BYTE)
+        case 5121: return 1; //(UNSIGNED_BYTE)1
+        case 5122: return 2; //(SHORT)2
+        case 5123: return 2; //(UNSIGNED_SHORT)2
+        case 5124: return 4; //(SIGNED_INT)4
+        case 5125: return 4; //(UNSIGNED_INT)4
+        case 5126: return 4; //(FLOAT)
+        }
+    }
+    else if (type == TINYGLTF_TYPE_VEC2)
+    {
+        switch (id)
+        {
+        case 5120: return 2; //(BYTE)
+        case 5121: return 2; //(UNSIGNED_BYTE)1
+        case 5122: return 4; //(SHORT)2
+        case 5123: return 4; //(UNSIGNED_SHORT)2
+        case 5124: return 8; //(SIGNED_INT)4
+        case 5125: return 8; //(UNSIGNED_INT)4
+        case 5126: return 8; //(FLOAT)
+        }
+    }
+    else if (type == TINYGLTF_TYPE_VEC3)
+    {
+        switch (id)
+        {
+        case 5120: return 4; //(BYTE)
+        case 5121: return 4; //(UNSIGNED_BYTE)1
+        case 5122: return 4; //(SHORT)2
+        case 5123: return 4; //(UNSIGNED_SHORT)2
+        case 5124: return 12; //(SIGNED_INT)4
+        case 5125: return 12; //(UNSIGNED_INT)4
+        case 5126: return 12; //(FLOAT)
+        }
+    }
+    else if (type == TINYGLTF_TYPE_VEC4)
+    {
+        switch (id)
+        {
+        case 5120: return 4; //(BYTE)
+        case 5121: return 4; //(UNSIGNED_BYTE)1
+        case 5122: return 8; //(SHORT)2
+        case 5123: return 8; //(UNSIGNED_SHORT)2
+        case 5124: return 16; //(SIGNED_INT)4
+        case 5125: return 16; //(UNSIGNED_INT)4
+        case 5126: return 16; //(FLOAT)
+        }
+    }
+
+    return 0;
+}

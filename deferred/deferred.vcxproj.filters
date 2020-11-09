@@ -127,12 +127,6 @@
     <FxCompile Include="triangleVs.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="boxTexturedVs.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="boxTexturedPs.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
     <FxCompile Include="untexturedModel.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
@@ -143,6 +137,15 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="roadGrid.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="texturedVs.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="texturedPs.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="bumpMapped.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

@@ -3,6 +3,7 @@
 #include "util.h"
 #include "settings.h"
 #include "strings.h"
+#include "shaders.h"
 
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d12.lib")
@@ -132,7 +133,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     if (FAILED(hr))
     {
         ErrorMsg("Couldn't create swapchain3");
-        return 0;
+        return false;
     }
 
     // Submission fence
@@ -141,7 +142,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     if (FAILED(hr))
     {
         ErrorMsg("Couldn't create submission fence");
-        return 0;
+        return false;
     }
 
     pRenderer->fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
@@ -156,7 +157,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     if (FAILED(hr))
     {
         ErrorMsg("Failed to create render target heap");
-        return 0;
+        return false;
     }
 
     D3D12_CPU_DESCRIPTOR_HANDLE rtvDescHandle = pRenderer->rtvHeap->GetCPUDescriptorHandleForHeapStart();
@@ -202,6 +203,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     if (FAILED(hr))
     {
         ErrorMsg("Failed to initialize heaps.");
+        return false;
     }
 
     // create cb upload heaps // todo make this one ring buffer
@@ -241,6 +243,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     if (FAILED(hr))
     {
         ErrorMsg("Failed to create depth stencil.");
+        return false;
     }
 
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
@@ -260,6 +263,15 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     pRenderer->projection = MakeInfReversedZProjRH(glm::radians((float)renderer::fov), 
                                                    (float)renderer::width / (float)renderer::height,
                                                    0.1f);
+
+    bool shaderCompilesSucceeded = initShaders();
+    
+    if (shaderCompilesSucceeded == false)
+    {
+        ErrorMsg("Failed to create depth stencil.");
+        return false;
+    }
+
     return true;
 }
 

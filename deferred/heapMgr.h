@@ -13,8 +13,9 @@ struct HeapMgr
 
     CComPtr<ID3D12DescriptorHeap> mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 
-    // Writes descriptors to heap, returns pointer to start
     HRESULT initializeHeaps(ID3D12Device* pDevice);
+
+    // Writes descriptors to heap, returns pointer to start
     D3D12_GPU_DESCRIPTOR_HANDLE copyDescriptorsToGpuHeap(ID3D12Device* pDevice,
                                                          D3D12_DESCRIPTOR_HEAP_TYPE type,
                                                          D3D12_CPU_DESCRIPTOR_HANDLE src,
