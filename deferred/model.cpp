@@ -8,9 +8,10 @@
 #include "shaders.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtx/transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtc/matrix_inverse.hpp"
+#include "glm/gtx/transform.hpp"
+#include "glm/gtx/quaternion.hpp"
 #include "shaders.h"
 
 using namespace std;
@@ -74,38 +75,25 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
             }
             localMatrix = matrix * localMatrix;
         }
-
-        if (pCurNode->scale.size() > 0)
+        else // TODO: make sure this is right, can we have both matrix and individual transformations?
         {
-            // scale matrix
-            glm::mat4 S(1.0f);
-            for (uint j = 0; j < pCurNode->scale.size(); j++)
+            if (pCurNode->scale.size() > 0)
             {
-                S[j/4][j%4] = static_cast<float>(pCurNode->scale[j]);
+                glm::vec3 scale(pCurNode->scale[0], pCurNode->scale[1], pCurNode->scale[2]);
+                localMatrix = glm::scale(localMatrix, scale);
             }
-            localMatrix = S * localMatrix;
-        }
-        if (pCurNode->rotation.size() > 0)
-        {
-            // rotate
-            glm::mat4 R(1.0f);
-            for (uint j = 0; j < pCurNode->rotation.size(); j++)
+            if (pCurNode->rotation.size() > 0)
             {
-                R[j/4][j%4] = static_cast<float>(pCurNode->rotation[j]);
+                glm::quat rotate(static_cast<float>(pCurNode->rotation[0]), static_cast<float>(pCurNode->rotation[1]), static_cast<float>(pCurNode->rotation[2]), static_cast<float>(pCurNode->rotation[3]));
+                glm::mat4 rotateMat = glm::toMat4(rotate);
+                localMatrix *= rotateMat;
             }
-            localMatrix = R * localMatrix;
-        }
-        if (pCurNode->translation.size() > 0)
-        {
-            // translate
-            glm::mat4 T(1.0f);
-            for (uint j = 0; j < pCurNode->translation.size(); j++)
+            if (pCurNode->translation.size() > 0)
             {
-                T[j/4][j%4] = static_cast<float>(pCurNode->translation[j]);
+                glm::vec3 translate(pCurNode->translation[0], pCurNode->translation[1], pCurNode->translation[2]);
+                localMatrix = glm::translate(localMatrix, translate);
             }
-            localMatrix = T * localMatrix;
         }
-
         // apply to mesh if we have one
         if (pCurNode->mesh != -1)
         {
@@ -396,6 +384,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC modelPsoDesc = {};
             modelPsoDesc.pRootSignature = model.pRootSignature;
+            // TODO: this is crappy figure out a better scheme via ubershader or something
             modelPsoDesc.VS = bytecodeFromBlob(hasTangent == true ? shaders[BUMP_MAPPED_VS] : model.NumTextures > 0 ? shaders[TEXTURED_VS] : shaders[UNTEXTURED_VS]);
             modelPsoDesc.PS = bytecodeFromBlob(hasTangent == true ? shaders[BUMP_MAPPED_PS] : model.NumTextures > 0 ? shaders[TEXTURED_PS] : shaders[UNTEXTURED_PS]);
             modelPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
