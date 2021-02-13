@@ -20,7 +20,7 @@ D3D12_SHADER_BYTECODE bytecodeFromBlob(ID3DBlob* blob)
 
 }
 // read shader in from file
-ID3DBlob* compileShaderFromFile(char const* filename, char const* profile, char const* entrypt)
+ID3DBlob* compileShaderFromFile(char const* filename, char const* profile, char const* entrypt, D3D_SHADER_MACRO* args)
 {
     ID3DBlob* code = nullptr;
 
@@ -50,7 +50,7 @@ ID3DBlob* compileShaderFromFile(char const* filename, char const* profile, char 
 }
 
 // compile shader
-ID3DBlob* compileSource(char const* source, char const* profile, char const* entrypt)
+ID3DBlob* compileSource(char const* source, char const* profile, char const* entrypt, D3D_SHADER_MACRO* args)
 {
     ID3DBlob* code   = nullptr;
     ID3DBlob* errors = nullptr;
@@ -71,7 +71,7 @@ bool initShaders()
 {
     for (int i = 0; i < SHADER_TYPES::NUM_SHADER_TYPES; i++)
     {
-        ID3DBlob* shader = compileShaderFromFile(shaderStrings[i], ((i % 2 == 0) ? "vs_5_1" : "ps_5_1"), shaderMain[i]);
+        ID3DBlob* shader = compileShaderFromFile(shaderStrings[i], ((i % 2 == 0) ? "vs_5_1" : "ps_5_1"), shaderMain[i], nullptr);
         if (shader == nullptr)
         {
             return false;

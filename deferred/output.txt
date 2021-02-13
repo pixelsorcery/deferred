@@ -1,3 +1,294 @@
+mesh : Mesh
+indexaccessor: count 36, type 5123
+mat : baseColorTexture
+mat : metallicFactor
+image name : CesiumLogoFlat.png
+  size : 262144
+  w/h : 256/256
+indices : 0
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+attribute : TEXCOORD_0
+mesh : LOD3spShape
+indexaccessor: count 12636, type 5123
+mat : baseColorTexture
+mat : metallicFactor
+image name : DuckCM.png
+  size : 1048576
+  w/h : 512/512
+indices : 0
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+attribute : TEXCOORD_0
+mesh : Piston_123-844_0_Parts_1
+indexaccessor: count 8250, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 0
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+indexaccessor: count 5034, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 3
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_24
+indexaccessor: count 936, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 6
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_23
+indexaccessor: count 1845, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 9
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_22
+indexaccessor: count 6489, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 12
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_21
+indexaccessor: count 9267, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 15
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_20
+indexaccessor: count 4839, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 18
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : Spring_Link__0_Parts_1
+indexaccessor: count 123, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 21
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+indexaccessor: count 123, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 24
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+indexaccessor: count 4842, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 27
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_19
+indexaccessor: count 987, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 30
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_18
+indexaccessor: count 2145, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 33
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_17
+indexaccessor: count 1566, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 36
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_16
+indexaccessor: count 1359, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 39
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_15
+indexaccessor: count 1032, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 42
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_14
+indexaccessor: count 288, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 45
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_13
+indexaccessor: count 1266, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 48
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_12
+indexaccessor: count 5787, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 51
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_11
+indexaccessor: count 8964, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 54
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_10
+indexaccessor: count 10167, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 57
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_9
+indexaccessor: count 10125, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 60
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_8
+indexaccessor: count 21150, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 63
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_7
+indexaccessor: count 1359, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 66
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_6
+indexaccessor: count 684, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 69
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_5
+indexaccessor: count 5889, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 72
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_4
+indexaccessor: count 20607, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 75
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body
+indexaccessor: count 573, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 78
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_3
+indexaccessor: count 32934, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 81
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_2
+indexaccessor: count 33420, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 84
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : body_1
+indexaccessor: count 17691, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 87
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : rod_123-699_0_Parts_1
+indexaccessor: count 3903, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 90
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+indexaccessor: count 960, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 93
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+mesh : Lifter_123-923_0_Parts_1
+indexaccessor: count 423, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 96
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
+indexaccessor: count 2163, type 5123
+mat : baseColorFactor
+mat : metallicFactor
+indices : 99
+mode     : (4)
+attribute : NORMAL
+attribute : POSITION
 mesh : LanternPole_Body
 indexaccessor: count 2616, type 5123
 mat : baseColorTexture

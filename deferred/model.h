@@ -14,6 +14,15 @@ struct GltfModel;
 bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename);
 void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt);
 
+struct ModelConstants
+{
+    glm::mat4x4 worldPos;
+    glm::vec4   baseColor;
+    glm::vec3   emissiveFactor;
+    float       metallicFactor;
+    float       roughnessFactor;
+};
+
 struct Prim
 {
     D3D12_INDEX_BUFFER_VIEW            indexBufView;
@@ -21,6 +30,7 @@ struct Prim
     DynArray<D3D12_VERTEX_BUFFER_VIEW> bufferViews;
     CComPtr<ID3D12PipelineState>       pPipeline;
     CComPtr<ID3D12RootSignature>       pRootSignature;
+    ModelConstants                     constantBuffer;
 };
 
 struct Mesh
@@ -30,8 +40,22 @@ struct Mesh
 
 struct SceneNode
 {
-    int                       meshIdx;
-    glm::mat4                 transformation;
+    int       meshIdx;
+    glm::mat4 transformation;
+};
+
+struct ShaderParams
+{
+    glm::vec4 baseColor;
+    glm::vec3 emissiveFactor;
+    float     roughnessFactor;
+    float     metallicFactor;
+    bool      hasBaseTex;
+    bool      hasRoughnessTex;
+    bool      hasNormalTex;
+    bool      hasEmissiveTex;
+    bool      hasOcclusion;
+    bool      hasTangent;
 };
 
 struct GltfModel
@@ -48,7 +72,6 @@ struct GltfModel
     std::vector<Texture>                      Textures;
     std::vector<uint>                         IndexBufSize;
     uint                                      NumPrimitives;
-    uint                                      NumTextures;
     CComPtr<ID3D12DescriptorHeap>             TextureDescriptorHeap;
     uint                                      NumDescriptors;
     D3D12_ROOT_DESCRIPTOR_TABLE               DescriptorTable;
@@ -60,9 +83,12 @@ struct GltfModel
     std::shared_ptr<char[]>                   pCpuConstantBuffer; // todo make this upload heap
     std::shared_ptr<char[]>                   pCpuConstantBuffer2; // inverse transpose normal matrix todo make this upload heap
     int                                       alignedMatrixSize;
+    int                                       alignedConstantSize;
     DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb0Ptrs; // todo refactor this, use buffer manager
     DynArray<D3D12_GPU_VIRTUAL_ADDRESS>       cb1Ptrs;
     glm::vec3                                 worldScale;
     glm::vec3                                 worldRotation;
     glm::vec3                                 worldPosition;
+    DynArray<ShaderParams>                    shaderParams;
+    DynArray<int>                             paramIdxs;
 };

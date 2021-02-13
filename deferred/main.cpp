@@ -95,7 +95,7 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
         std::chrono::duration<float> deltaTime = newTime - oldTime;
 
         // render frame
-        app2->drawFrame(deltaTime/1s);
+        app2->drawFrame(deltaTime/5s);
         oldTime = newTime;
     }
 

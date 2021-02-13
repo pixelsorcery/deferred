@@ -148,5 +148,8 @@
     <FxCompile Include="bumpMapped.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="gltfPbr.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

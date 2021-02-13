@@ -493,7 +493,10 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
 
     if (pRenderer->pSubmitFence->GetCompletedValue() < pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal)
     {
-        pRenderer->pSubmitFence->SetEventOnCompletion(pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal, pRenderer->fenceEvent);
+		char fenceValueStr[1024];
+		sprintf_s(fenceValueStr, "completed fence value: %llu, waiting on completionFenceValue: %llu\n", pRenderer->pSubmitFence->GetCompletedValue(), pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal);
+		OutputDebugString(fenceValueStr);
+		pRenderer->pSubmitFence->SetEventOnCompletion(pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal, pRenderer->fenceEvent);
         WaitForSingleObject(pRenderer->fenceEvent, INFINITE);
     }
 

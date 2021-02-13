@@ -21,6 +21,13 @@ extern std::vector<CComPtr<ID3DBlob>> shaders;
 #if defined(_DEBUG)
 #include <iostream>
 
+enum RootSigOffsets {
+    MVP_MATRIX = 0,
+    CONSTANTS,
+    TEXTURES,
+    NUM_ENTRIES,
+};
+
 void dbgModel(tinygltf::Model& model) {
     for (auto& mesh : model.meshes) {
         std::cout << "mesh : " << mesh.name << std::endl;
@@ -77,6 +84,8 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
         }
         else // TODO: make sure this is right, can we have both matrix and individual transformations?
         {
+            // The local transform matrix always has to be computed as M = T * R * S
+            // https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_004_ScenesNodes.md
             if (pCurNode->scale.size() > 0)
             {
                 glm::vec3 scale(pCurNode->scale[0], pCurNode->scale[1], pCurNode->scale[2]);
@@ -97,6 +106,7 @@ void transformNodes(GltfModel& model, vector<int>& nodes, glm::mat4 matrix)
         // apply to mesh if we have one
         if (pCurNode->mesh != -1)
         {
+            // save a reference to mesh and local transformation in sceneNodes
             SceneNode node = { pCurNode->mesh, localMatrix };
             model.sceneNodes.push(node);
         }
@@ -124,6 +134,46 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     DynArray<D3D12_RESOURCE_DESC> resourceDescArray;
 
     tinygltf::Model* pModel = &model.TinyGltfModel;
+
+    // read in materials
+    for (auto& material : pModel->materials)
+    {
+        ShaderParams param = {};
+        param.baseColor.r = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[0]);
+        param.baseColor.g = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[1]);
+        param.baseColor.b = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[2]);
+        param.baseColor.a = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[3]);
+
+        if (material.pbrMetallicRoughness.baseColorTexture.index >= 0)
+        {
+            param.hasBaseTex = true;
+        }
+        if (material.pbrMetallicRoughness.metallicRoughnessTexture.index >= 0)
+        {
+            param.hasRoughnessTex = true;
+        }
+        if (material.normalTexture.index >= 0)
+        {
+            param.hasNormalTex = true;
+        }
+        if (material.occlusionTexture.index >= 0)
+        {
+            param.hasOcclusion = true;
+        }
+        if (material.emissiveTexture.index >= 0)
+        {
+            param.hasEmissiveTex = true;
+        }
+
+        param.metallicFactor  = static_cast<float>(material.pbrMetallicRoughness.metallicFactor);
+        param.roughnessFactor = static_cast<float>(material.pbrMetallicRoughness.roughnessFactor);
+
+        param.emissiveFactor.r = static_cast<float>(material.emissiveFactor[0]);
+        param.emissiveFactor.g = static_cast<float>(material.emissiveFactor[1]);
+        param.emissiveFactor.b = static_cast<float>(material.emissiveFactor[2]);
+
+        model.shaderParams.push(param);
+    }
 
     // create textures
     for (size_t i = 0; i < pModel->images.size(); i++)
@@ -195,9 +245,8 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
         D3D12_CPU_DESCRIPTOR_HANDLE descHandle = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+        descHandle.ptr += pRenderer->heapMgr.descriptorSizes[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] * i;
         pDevice->CreateShaderResourceView(model.Textures[i].pRes, &srvDesc, descHandle);
-
-        descHandle.ptr += pRenderer->heapMgr.descriptorSizes[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
     }
 
     // Create root signature for model
@@ -207,22 +256,22 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     srvRange.NumDescriptors = static_cast<uint>(model.Textures.size());
 
-    D3D12_ROOT_PARAMETER params[3];
-    params[0] = {};
-    params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-    params[0].Descriptor.ShaderRegister = 0;
+    D3D12_ROOT_PARAMETER params[4];
+    params[MVP_MATRIX] = {};
+    params[MVP_MATRIX].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[MVP_MATRIX].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+    params[MVP_MATRIX].Descriptor.ShaderRegister = 0;
 
-    params[1] = {};
-    params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-    params[1].Descriptor.ShaderRegister = 1;
+    params[CONSTANTS] = {};
+    params[CONSTANTS].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[CONSTANTS].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    params[CONSTANTS].Descriptor.ShaderRegister = 1;
 
-    params[2] = {};
-    params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[2].DescriptorTable.NumDescriptorRanges = 1;
-    params[2].DescriptorTable.pDescriptorRanges = &srvRange;
-    params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    params[TEXTURES] = {};
+    params[TEXTURES].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    params[TEXTURES].DescriptorTable.NumDescriptorRanges = 1;
+    params[TEXTURES].DescriptorTable.pDescriptorRanges = &srvRange;
+    params[TEXTURES].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_STATIC_SAMPLER_DESC sampDesc = {};
     sampDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -236,7 +285,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     sampDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 
     D3D12_ROOT_SIGNATURE_DESC rootSigDesc = {};
-    rootSigDesc.NumParameters = 2; // todo fix this magic number
+    rootSigDesc.NumParameters = NUM_ENTRIES - 1;
     rootSigDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     rootSigDesc.pParameters = params;
     rootSigDesc.pStaticSamplers = nullptr;
@@ -382,11 +431,60 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
             dsDesc.FrontFace = defaultStencilOp;
             dsDesc.BackFace = defaultStencilOp;
 
+            vector<D3D_SHADER_MACRO> macros;
+
+            int matIdx = pModel->meshes[i].primitives[j].material;
+            model.paramIdxs.push(matIdx);
+
+            ShaderParams const* pParams = &model.shaderParams[matIdx];
+
+            if (pParams->hasBaseTex)
+            {
+                macros.push_back({ "BASECOLOR_TEX", "1" });
+            }
+
+            if (pParams->hasNormalTex)
+            {
+                macros.push_back({ "NORMAL_TEX", "1" });
+            }
+
+            if (pParams->hasRoughnessTex)
+            {
+                macros.push_back({ "ROUGHNESSMETALLIC_TEX", "1" });
+            }
+
+            if (pParams->hasEmissiveTex)
+            {
+                macros.push_back({ "EMISSIVE_TEX", "1" });
+            }
+
+            if (pParams->hasOcclusion)
+            {
+                macros.push_back({ "HAS_OCCLUSION", "1" });
+            }
+
+            if (hasTangent == true)
+            {
+                macros.push_back({ "HAS_TANGENT", "1" });
+            }
+
+            macros.push_back({ NULL, NULL });
+
+            prim.constantBuffer.baseColor       = pParams->baseColor;
+            prim.constantBuffer.emissiveFactor  = pParams->emissiveFactor;
+            prim.constantBuffer.metallicFactor  = pParams->metallicFactor;
+            prim.constantBuffer.roughnessFactor = pParams->roughnessFactor;
+
+            CComPtr<ID3DBlob> vs = compileShaderFromFile("gltfPbr.hlsl", "vs_5_1", "mainVS", macros.data());
+            CComPtr<ID3DBlob> ps = compileShaderFromFile("gltfPbr.hlsl", "ps_5_1", "mainPS", macros.data());
+
             D3D12_GRAPHICS_PIPELINE_STATE_DESC modelPsoDesc = {};
             modelPsoDesc.pRootSignature = model.pRootSignature;
             // TODO: this is crappy figure out a better scheme via ubershader or something
-            modelPsoDesc.VS = bytecodeFromBlob(hasTangent == true ? shaders[BUMP_MAPPED_VS] : model.NumTextures > 0 ? shaders[TEXTURED_VS] : shaders[UNTEXTURED_VS]);
-            modelPsoDesc.PS = bytecodeFromBlob(hasTangent == true ? shaders[BUMP_MAPPED_PS] : model.NumTextures > 0 ? shaders[TEXTURED_PS] : shaders[UNTEXTURED_PS]);
+            //modelPsoDesc.VS = bytecodeFromBlob(hasTangent == true ? shaders[BUMP_MAPPED_VS] : model.Textures.size() > 0 ? shaders[TEXTURED_VS] : shaders[UNTEXTURED_VS]);
+            //modelPsoDesc.PS = bytecodeFromBlob(hasTangent == true ? shaders[BUMP_MAPPED_PS] : model.Textures.size() > 0 ? shaders[TEXTURED_PS] : shaders[UNTEXTURED_PS]);
+            modelPsoDesc.VS = bytecodeFromBlob(vs);
+            modelPsoDesc.PS = bytecodeFromBlob(ps);
             modelPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
             modelPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
             modelPsoDesc.RasterizerState.DepthClipEnable = TRUE;
@@ -428,44 +526,15 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
     //glm::mat4 scale = glm::scale(glm::vec3(0.05));
     // create constant heap for matrices
-    model.alignedMatrixSize = ((sizeof(glm::mat4) + 255) & ~255);
+    model.alignedMatrixSize   = ((sizeof(glm::mat4) + 255) & ~255);
+    model.alignedConstantSize = ((sizeof(ModelConstants) + 255) & ~255);
 
     // todo: add better constant buffer management
-    model.ConstantBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedMatrixSize, D3D12_RESOURCE_STATE_COPY_DEST);
-    model.ConstantBuffer2 = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedMatrixSize, D3D12_RESOURCE_STATE_COPY_DEST);
+    model.ConstantBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedMatrixSize, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    model.ConstantBuffer2 = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedConstantSize, D3D12_RESOURCE_STATE_COPY_DEST);
 
     model.pCpuConstantBuffer  = make_unique<char[]>(model.sceneNodes.size * model.alignedMatrixSize);
-    model.pCpuConstantBuffer2 = make_unique<char[]>(model.sceneNodes.size * model.alignedMatrixSize);
-
-    glm::mat4* ptr      = reinterpret_cast<glm::mat4*>(model.pCpuConstantBuffer.get());
-    glm::mat4* worldPtr = reinterpret_cast<glm::mat4*>(model.pCpuConstantBuffer2.get());
-
-    D3D12_GPU_VIRTUAL_ADDRESS bufferAddress = model.ConstantBuffer->GetGPUVirtualAddress();
-    D3D12_GPU_VIRTUAL_ADDRESS bufferAddress2 = model.ConstantBuffer2->GetGPUVirtualAddress();
-
-    for (uint i = 0; i < model.sceneNodes.size; i++)
-    {
-        // update buffer // todo move this to draw time
-        *worldPtr = model.sceneNodes[i].transformation;
-        *worldPtr = pRenderer->camera.lookAt() * *worldPtr;
-        worldPtr += model.alignedMatrixSize / sizeof(glm::mat4);
-
-        *ptr = model.sceneNodes[i].transformation;
-        *ptr = pRenderer->projection * pRenderer->camera.lookAt() * *ptr;
-        ptr += model.alignedMatrixSize / sizeof(glm::mat4);
-
-        model.cb0Ptrs.push(bufferAddress);
-        model.cb1Ptrs.push(bufferAddress2);
-        bufferAddress += model.alignedMatrixSize;
-        bufferAddress2 += model.alignedMatrixSize;
-    }
-
-    // upload buffer
-    uploadBuffer(pRenderer, model.ConstantBuffer, model.pCpuConstantBuffer.get(), model.sceneNodes.size * model.alignedMatrixSize, 0);
-    transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-
-    uploadBuffer(pRenderer, model.ConstantBuffer2, model.pCpuConstantBuffer2.get(), model.sceneNodes.size* model.alignedMatrixSize, 0);
-    transitionResource(pRenderer, model.ConstantBuffer2, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    model.pCpuConstantBuffer2 = make_unique<char[]>(model.sceneNodes.size * model.alignedConstantSize);
 
 #if defined(_DEBUG)
     dbgModel(*pModel);
@@ -486,13 +555,10 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
 
     vector<int> curNodes = scene.nodes;
     glm::mat4 initWorldMatrix = glm::mat4(1.0);
-    static float angle = 0.1f;
-    angle += dt;
 
     model.sceneNodes.erase();
 
     initWorldMatrix = glm::translate(initWorldMatrix, model.worldPosition);
-    initWorldMatrix = glm::rotate(initWorldMatrix, angle, glm::vec3(1.0f, 1.0f, 1.0f));
     initWorldMatrix = glm::scale(initWorldMatrix, model.worldScale);
     transformNodes(model, scene.nodes, initWorldMatrix);
 
@@ -536,7 +602,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
 
     if (model.Textures.size() > 0)
     {
-        pCmdList->SetGraphicsRootDescriptorTable(2, srvTableStart);
+        pCmdList->SetGraphicsRootDescriptorTable(TEXTURES, srvTableStart);
     }
 
     pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -548,8 +614,9 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
         {
             Prim* pPrim = &model.meshes[pNode->meshIdx].prims[primidx];
 
-            pCmdList->SetGraphicsRootConstantBufferView(0, model.cb0Ptrs[nodeidx]);
-            pCmdList->SetGraphicsRootConstantBufferView(1, model.cb1Ptrs[nodeidx]);
+            pCmdList->SetGraphicsRootConstantBufferView(0, model.ConstantBuffer->GetGPUVirtualAddress() + (model.alignedMatrixSize * nodeidx));
+            // todo make this alignedConstantSize
+            pCmdList->SetGraphicsRootConstantBufferView(1, model.ConstantBuffer2->GetGPUVirtualAddress() + (model.alignedMatrixSize * nodeidx));
             pCmdList->SetPipelineState(pPrim->pPipeline);
 
             // set buffers
