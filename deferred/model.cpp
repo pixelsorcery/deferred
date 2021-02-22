@@ -563,19 +563,27 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
     transformNodes(model, scene.nodes, initWorldMatrix);
 
     glm::mat4* ptr      = reinterpret_cast<glm::mat4*>(model.pCpuConstantBuffer.get());
-    glm::mat4* worldPtr = reinterpret_cast<glm::mat4*>(model.pCpuConstantBuffer2.get());
+    ModelConstants* pModelConstants = reinterpret_cast<ModelConstants*>(model.pCpuConstantBuffer2.get());
 
+
+    // update constant buffers
     for (uint i = 0; i < model.sceneNodes.size; i++)
     {
         // update normal matrix
-        *worldPtr = model.sceneNodes[i].transformation;
-        *worldPtr = pRenderer->camera.lookAt() * *worldPtr;
-        *worldPtr = glm::inverseTranspose(*worldPtr);
-        worldPtr += model.alignedMatrixSize / sizeof(glm::mat4);
+        pModelConstants->worldPos = model.sceneNodes[i].transformation;
+        pModelConstants->worldPos = pRenderer->camera.lookAt() * pModelConstants->worldPos;
+        pModelConstants->worldPos = glm::inverseTranspose(pModelConstants->worldPos);
+        int meshIdx = model.sceneNodes[i].meshIdx;
+
+        pModelConstants->baseColor = model.shaderParams[meshIdx].baseColor;
+        pModelConstants->metallicFactor = model.shaderParams[meshIdx].metallicFactor;
+        pModelConstants->roughnessFactor = model.shaderParams[meshIdx].roughnessFactor;
+        pModelConstants->emissiveFactor = model.shaderParams[meshIdx].emissiveFactor;
+        pModelConstants = reinterpret_cast<ModelConstants*>(reinterpret_cast<char*>(pModelConstants) + model.alignedConstantSize); // ew
 
         *ptr = model.sceneNodes[i].transformation;
         *ptr = pRenderer->projection * pRenderer->camera.lookAt() * *ptr;
-        ptr += model.alignedMatrixSize / sizeof(glm::mat4);
+        ptr  = reinterpret_cast<glm::mat4*>(reinterpret_cast<char*>(ptr) + model.alignedMatrixSize);
     }
 
     // upload buffer
@@ -584,7 +592,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
     transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
     transitionResource(pRenderer, model.ConstantBuffer2, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-    uploadBuffer(pRenderer, model.ConstantBuffer2, model.pCpuConstantBuffer2.get(), model.sceneNodes.size * model.alignedMatrixSize, 0);
+    uploadBuffer(pRenderer, model.ConstantBuffer2, model.pCpuConstantBuffer2.get(), model.sceneNodes.size * model.alignedConstantSize, 0);
     transitionResource(pRenderer, model.ConstantBuffer2, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
     // set root sig
@@ -614,9 +622,9 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
         {
             Prim* pPrim = &model.meshes[pNode->meshIdx].prims[primidx];
 
-            pCmdList->SetGraphicsRootConstantBufferView(0, model.ConstantBuffer->GetGPUVirtualAddress() + (model.alignedMatrixSize * nodeidx));
+            pCmdList->SetGraphicsRootConstantBufferView(0, model.ConstantBuffer->GetGPUVirtualAddress() + ((UINT64)model.alignedMatrixSize * nodeidx));
             // todo make this alignedConstantSize
-            pCmdList->SetGraphicsRootConstantBufferView(1, model.ConstantBuffer2->GetGPUVirtualAddress() + (model.alignedMatrixSize * nodeidx));
+            pCmdList->SetGraphicsRootConstantBufferView(1, model.ConstantBuffer2->GetGPUVirtualAddress() + ((UINT64)model.alignedConstantSize * nodeidx));
             pCmdList->SetPipelineState(pPrim->pPipeline);
 
             // set buffers
