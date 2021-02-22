@@ -264,14 +264,6 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
                                                    (float)renderer::width / (float)renderer::height,
                                                    0.1f);
 
-    bool shaderCompilesSucceeded = initShaders();
-    
-    if (shaderCompilesSucceeded == false)
-    {
-        ErrorMsg("Failed to create depth stencil.");
-        return false;
-    }
-
     return true;
 }
 

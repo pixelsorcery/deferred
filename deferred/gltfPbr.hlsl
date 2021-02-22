@@ -82,7 +82,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float3 light = float3(0.0, 1.0, 1.0);
 
 #if BASECOLOR_TEX
-    float3 color = baseColorTex.Sample(samLinear, input.Tex.xy);
+    float3 color = baseColorTex.Sample(samLinear, input.Tex.xy).rgb;
 #else
     float3 color = baseColor.rgb;
 #endif
@@ -97,7 +97,8 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
 #ifdef ROUGHNESSMETALLIC_TEX
     float3 roughness = roughnessTex.Sample(samLinear, input.Tex.xy).rgb;
 #endif 
-
-    float3 diffuse = saturate(dot(normal, light)) * color;
-    return float4(diffuse, 1.0f);
+    
+    return float4(color, 1.0f);
+    //float3 diffuse = saturate(dot(normal, light)) * color;
+    //return float4(diffuse, 1.0f);
 }

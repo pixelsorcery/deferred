@@ -42,7 +42,7 @@ ID3DBlob* compileShaderFromFile(char const* filename, char const* profile, char 
         return nullptr;
     }
 
-    code = compileSource(shaderText.c_str(), profile, entrypt);
+    code = compileSource(shaderText.c_str(), profile, entrypt, args);
 
     file.close();
 
@@ -54,7 +54,8 @@ ID3DBlob* compileSource(char const* source, char const* profile, char const* ent
 {
     ID3DBlob* code   = nullptr;
     ID3DBlob* errors = nullptr;
-    HRESULT hr = D3DCompile(source, strlen(source), NULL, NULL, NULL, entrypt, profile, D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_DEBUG /*D3DCOMPILE_OPTIMIZATION_LEVEL3*/, 0,
+
+    HRESULT hr = D3DCompile(source, strlen(source), NULL, args, NULL, entrypt, profile, D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_DEBUG /*D3DCOMPILE_OPTIMIZATION_LEVEL3*/, 0,
         &code, &errors);
 
     if (errors)
