@@ -529,12 +529,22 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     model.alignedMatrixSize   = ((sizeof(glm::mat4) + 255) & ~255);
     model.alignedConstantSize = ((sizeof(ModelConstants) + 255) & ~255);
 
-    // todo: add better constant buffer management
-    model.ConstantBuffer = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedMatrixSize, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-    model.ConstantBuffer2 = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, model.sceneNodes.size * model.alignedConstantSize, D3D12_RESOURCE_STATE_COPY_DEST);
+    int totalPrimCount = 0;
+    // calculate total number of primitives to draw
+    for (uint nodeidx = 0; nodeidx < model.sceneNodes.size; nodeidx++)
+    {
+        const SceneNode* pNode = &model.sceneNodes[nodeidx];
+        totalPrimCount += model.meshes[pNode->meshIdx].prims.size;
+    }
 
-    model.pCpuConstantBuffer  = make_unique<char[]>(model.sceneNodes.size * model.alignedMatrixSize);
-    model.pCpuConstantBuffer2 = make_unique<char[]>(model.sceneNodes.size * model.alignedConstantSize);
+    model.totalPrimCount = totalPrimCount;
+
+    // todo: add better constant buffer management
+    model.ConstantBuffer  = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, totalPrimCount * model.alignedMatrixSize, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    model.ConstantBuffer2 = createBuffer(pRenderer, D3D12_HEAP_TYPE_DEFAULT, totalPrimCount * model.alignedConstantSize, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+    model.pCpuConstantBuffer  = make_unique<char[]>(static_cast<int64>(totalPrimCount) * model.alignedMatrixSize);
+    model.pCpuConstantBuffer2 = make_unique<char[]>(static_cast<int64>(totalPrimCount) * model.alignedConstantSize);
 
 #if defined(_DEBUG)
     dbgModel(*pModel);
@@ -558,41 +568,50 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
 
     model.sceneNodes.erase();
 
+    static float angle = 0.1f;
+    angle += dt;
+
     initWorldMatrix = glm::translate(initWorldMatrix, model.worldPosition);
+    initWorldMatrix = glm::rotate(initWorldMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
     initWorldMatrix = glm::scale(initWorldMatrix, model.worldScale);
     transformNodes(model, scene.nodes, initWorldMatrix);
 
     glm::mat4* ptr      = reinterpret_cast<glm::mat4*>(model.pCpuConstantBuffer.get());
     ModelConstants* pModelConstants = reinterpret_cast<ModelConstants*>(model.pCpuConstantBuffer2.get());
 
-
     // update constant buffers
     for (uint i = 0; i < model.sceneNodes.size; i++)
     {
-        // update normal matrix
-        pModelConstants->worldPos = model.sceneNodes[i].transformation;
-        pModelConstants->worldPos = pRenderer->camera.lookAt() * pModelConstants->worldPos;
-        pModelConstants->worldPos = glm::inverseTranspose(pModelConstants->worldPos);
         int meshIdx = model.sceneNodes[i].meshIdx;
 
-        pModelConstants->baseColor = model.shaderParams[meshIdx].baseColor;
-        pModelConstants->metallicFactor = model.shaderParams[meshIdx].metallicFactor;
-        pModelConstants->roughnessFactor = model.shaderParams[meshIdx].roughnessFactor;
-        pModelConstants->emissiveFactor = model.shaderParams[meshIdx].emissiveFactor;
-        pModelConstants = reinterpret_cast<ModelConstants*>(reinterpret_cast<char*>(pModelConstants) + model.alignedConstantSize); // ew
+        const SceneNode* pNode = &model.sceneNodes[i];
+        for (uint primidx = 0; primidx < model.meshes[pNode->meshIdx].prims.size; primidx++)
+        {
+            // update normal matrix
+            pModelConstants->worldPos = model.sceneNodes[i].transformation;
+            pModelConstants->worldPos = pRenderer->camera.lookAt() * pModelConstants->worldPos;
+            pModelConstants->worldPos = glm::inverseTranspose(pModelConstants->worldPos);
+            int matIdx = model.TinyGltfModel.meshes[meshIdx].primitives[primidx].material;
 
-        *ptr = model.sceneNodes[i].transformation;
-        *ptr = pRenderer->projection * pRenderer->camera.lookAt() * *ptr;
-        ptr  = reinterpret_cast<glm::mat4*>(reinterpret_cast<char*>(ptr) + model.alignedMatrixSize);
+            pModelConstants->baseColor = model.shaderParams[matIdx].baseColor;
+            pModelConstants->metallicFactor = model.shaderParams[matIdx].metallicFactor;
+            pModelConstants->roughnessFactor = model.shaderParams[matIdx].roughnessFactor;
+            pModelConstants->emissiveFactor = model.shaderParams[matIdx].emissiveFactor;
+            pModelConstants = reinterpret_cast<ModelConstants*>(reinterpret_cast<char*>(pModelConstants) + model.alignedConstantSize); // ew
+
+            *ptr = model.sceneNodes[i].transformation;
+            *ptr = pRenderer->projection * pRenderer->camera.lookAt() * *ptr;
+            ptr = reinterpret_cast<glm::mat4*>(reinterpret_cast<char*>(ptr) + model.alignedMatrixSize);
+        }
     }
 
     // upload buffer
     transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-    uploadBuffer(pRenderer, model.ConstantBuffer, model.pCpuConstantBuffer.get(), model.sceneNodes.size * model.alignedMatrixSize, 0);
+    uploadBuffer(pRenderer, model.ConstantBuffer, model.pCpuConstantBuffer.get(), model.totalPrimCount * model.alignedMatrixSize, 0);
     transitionResource(pRenderer, model.ConstantBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
     transitionResource(pRenderer, model.ConstantBuffer2, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-    uploadBuffer(pRenderer, model.ConstantBuffer2, model.pCpuConstantBuffer2.get(), model.sceneNodes.size * model.alignedConstantSize, 0);
+    uploadBuffer(pRenderer, model.ConstantBuffer2, model.pCpuConstantBuffer2.get(), model.totalPrimCount * model.alignedConstantSize, 0);
     transitionResource(pRenderer, model.ConstantBuffer2, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
     // set root sig
@@ -615,16 +634,17 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
 
     pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+    int primIdx = 0;
     for (uint nodeidx = 0; nodeidx < model.sceneNodes.size; nodeidx++)
     {
-        SceneNode* pNode = &model.sceneNodes[nodeidx];
+        const SceneNode* pNode = &model.sceneNodes[nodeidx];
         for (uint primidx = 0; primidx < model.meshes[pNode->meshIdx].prims.size; primidx++)
         {
             Prim* pPrim = &model.meshes[pNode->meshIdx].prims[primidx];
 
-            pCmdList->SetGraphicsRootConstantBufferView(0, model.ConstantBuffer->GetGPUVirtualAddress() + ((UINT64)model.alignedMatrixSize * nodeidx));
+            pCmdList->SetGraphicsRootConstantBufferView(0, model.ConstantBuffer->GetGPUVirtualAddress() + ((UINT64)model.alignedMatrixSize * primIdx));
             // todo make this alignedConstantSize
-            pCmdList->SetGraphicsRootConstantBufferView(1, model.ConstantBuffer2->GetGPUVirtualAddress() + ((UINT64)model.alignedConstantSize * nodeidx));
+            pCmdList->SetGraphicsRootConstantBufferView(1, model.ConstantBuffer2->GetGPUVirtualAddress() + ((UINT64)model.alignedConstantSize * primIdx));
             pCmdList->SetPipelineState(pPrim->pPipeline);
 
             // set buffers
@@ -633,6 +653,10 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
 
             // draw box
             pCmdList->DrawIndexedInstanced(pPrim->indexBufSize, 1, 0, 0, 0);
+
+
+            // increment prim counter
+            primIdx++;
         }
     }
 

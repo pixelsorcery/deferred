@@ -150,7 +150,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float3 roughness = roughnessTex.Sample(samLinear, input.Tex.xy).rgb;
 #endif 
     
-    //float3 diffuse = saturate(dot(normal, light)) * color;
-    //return float4(diffuse, 1.0f);
-    return float4(color, 1.0f);
+    float3 diffuse = saturate(dot(normal, light)) * color;
+    return float4(diffuse, 1.0f);
+    //return float4(color, 1.0f);
 }

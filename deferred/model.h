@@ -91,4 +91,5 @@ struct GltfModel
     glm::vec3                                 worldPosition;
     DynArray<ShaderParams>                    shaderParams;
     DynArray<int>                             paramIdxs;
+    int                                       totalPrimCount;
 };
