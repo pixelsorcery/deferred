@@ -25,21 +25,23 @@ bool App2::init(HWND hwnd)
     GltfModel duck = {};
     GltfModel model = {};
     GltfModel lantern = {};
-    result = loadModel(pRenderer.get(), box, "..\\models\\BoxTextured.gltf");
-    box.worldScale = glm::vec3(10.0f, 10.0f, 10.0f);
-    box.worldPosition = glm::vec3(-25.0f, -15.0f, 0.0f);
-    models.push_back(box);
-    result = loadModel(pRenderer.get(), duck, "..\\models\\duck\\Duck.gltf");
-    duck.worldScale = glm::vec3(5.0f, 5.0f, 5.0f);
-    duck.worldPosition = glm::vec3(-20.0f, 15.0f, 0.0f);
-    models.push_back(duck);
+    //result = loadModel(pRenderer.get(), box, "..\\models\\BoxTextured.gltf");
+    //box.worldScale = glm::vec3(10.0f, 10.0f, 10.0f);
+    //box.worldPosition = glm::vec3(-25.0f, -15.0f, 0.0f);
+    //models.push_back(box);
+    //result = loadModel(pRenderer.get(), duck, "..\\models\\duck\\Duck.gltf");
+    //duck.worldScale = glm::vec3(5.0f, 5.0f, 5.0f);
+    //duck.worldPosition = glm::vec3(-20.0f, 15.0f, 0.0f);
+    //models.push_back(duck);
     result = loadModel(pRenderer.get(), model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
-    model.worldScale = glm::vec3(0.02f, 0.02f, 0.02f);
-    model.worldPosition = glm::vec3(15.0f, 15.0f, 0.0f);
+    //model.worldScale = glm::vec3(0.02f, 0.02f, 0.02f);
+    //model.worldPosition = glm::vec3(15.0f, 15.0f, 0.0f);
+    model.worldScale = glm::vec3(0.07f, 0.07f, 0.07f);
+    model.worldPosition = glm::vec3(0.0f, 10.0f, 0.0f);
     models.push_back(model);
-    result = loadModel(pRenderer.get(), lantern, "..\\models\\lantern\\lantern.gltf");
-    lantern.worldPosition = glm::vec3(20.0f, -20.0f, 0.0f);
-    models.push_back(lantern);
+    //result = loadModel(pRenderer.get(), lantern, "..\\models\\lantern\\lantern.gltf");
+    //lantern.worldPosition = glm::vec3(20.0f, -20.0f, 0.0f);
+   // models.push_back(lantern);
 
     return result;
 }
@@ -58,7 +60,7 @@ void App2::drawFrame(float time)
     transitionResource(pRenderer.get(), pRenderer->backbuf[pRenderer->currentSubmission], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
     // clear rt
-    float clearCol[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    float clearCol[4] = { .8f, .9f, 1.0f, 1.0f };
     pCmdList->ClearRenderTargetView(pRenderer->backbufDescHandle[pRenderer->currentSubmission], clearCol, 0, nullptr);
     D3D12_CLEAR_FLAGS clearFlags = D3D12_CLEAR_FLAG_DEPTH;
     pCmdList->ClearDepthStencilView(pRenderer->dsDescHandle, clearFlags, 0.0, 0, 0, nullptr);

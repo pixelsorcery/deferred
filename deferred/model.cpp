@@ -643,7 +643,6 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
             Prim* pPrim = &model.meshes[pNode->meshIdx].prims[primidx];
 
             pCmdList->SetGraphicsRootConstantBufferView(0, model.ConstantBuffer->GetGPUVirtualAddress() + ((UINT64)model.alignedMatrixSize * primIdx));
-            // todo make this alignedConstantSize
             pCmdList->SetGraphicsRootConstantBufferView(1, model.ConstantBuffer2->GetGPUVirtualAddress() + ((UINT64)model.alignedConstantSize * primIdx));
             pCmdList->SetPipelineState(pPrim->pPipeline);
 
@@ -653,7 +652,6 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
 
             // draw box
             pCmdList->DrawIndexedInstanced(pPrim->indexBufSize, 1, 0, 0, 0);
-
 
             // increment prim counter
             primIdx++;
