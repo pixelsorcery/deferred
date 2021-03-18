@@ -25,6 +25,7 @@ bool App2::init(HWND hwnd)
     GltfModel duck = {};
     GltfModel model = {};
     GltfModel lantern = {};
+    GltfModel spheres = {};
     //result = loadModel(pRenderer.get(), box, "..\\models\\BoxTextured.gltf");
     //box.worldScale = glm::vec3(10.0f, 10.0f, 10.0f);
     //box.worldPosition = glm::vec3(-25.0f, -15.0f, 0.0f);
@@ -33,15 +34,21 @@ bool App2::init(HWND hwnd)
     //duck.worldScale = glm::vec3(5.0f, 5.0f, 5.0f);
     //duck.worldPosition = glm::vec3(-20.0f, 15.0f, 0.0f);
     //models.push_back(duck);
-    result = loadModel(pRenderer.get(), model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
+    //result = loadModel(pRenderer.get(), model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
     //model.worldScale = glm::vec3(0.02f, 0.02f, 0.02f);
     //model.worldPosition = glm::vec3(15.0f, 15.0f, 0.0f);
-    model.worldScale = glm::vec3(0.07f, 0.07f, 0.07f);
-    model.worldPosition = glm::vec3(0.0f, 10.0f, 0.0f);
-    models.push_back(model);
+    ////model.worldScale = glm::vec3(0.07f, 0.07f, 0.07f);
+    ////model.worldPosition = glm::vec3(0.0f, 10.0f, 0.0f);
+    //models.push_back(model);
     //result = loadModel(pRenderer.get(), lantern, "..\\models\\lantern\\lantern.gltf");
-    //lantern.worldPosition = glm::vec3(20.0f, -20.0f, 0.0f);
-   // models.push_back(lantern);
+    //lantern.worldPosition = glm::vec3(20.0f, -10.0f, 0.0f);
+    //model.worldScale = glm::vec3(0.09f, 0.09f, 0.09f);
+    //models.push_back(lantern);
+
+    result = loadModel(pRenderer.get(), spheres, "..\\models\\MetalRoughSpheresNoTextures.gltf");
+    spheres.worldPosition = glm::vec3(-30.0f, -30.0f, -30.0f);
+    spheres.worldScale = glm::vec3(10000.0f, 10000.0f, 10000.0f);
+    models.push_back(spheres);
 
     return result;
 }

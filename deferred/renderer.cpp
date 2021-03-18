@@ -255,12 +255,12 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     pDevice->CreateDepthStencilView(pRenderer->depthStencil, &dsvDesc, pRenderer->dsDescHandle);
 
     // init view
-    pRenderer->camera.init(glm::vec3(0.0f, 20.0f, 30.0f), // eye
+    pRenderer->camera.init(glm::vec3(0.0f, 00.0f, 30.0f), // eye
                            glm::vec3(0.0f, 0.0f, 0.0f),   // center
                            glm::vec3(0.0f, 1.0f, 0.0f));  // up
 
     // init perspective projection matrix 
-    pRenderer->projection = MakeInfReversedZProjRH(glm::radians((float)renderer::fov), 
+    pRenderer->projection = MakeInfReversedZProjRH(renderer::fov, 
                                                    (float)renderer::width / (float)renderer::height,
                                                    0.1f);
 

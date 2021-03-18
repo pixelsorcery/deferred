@@ -17,6 +17,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt);
 struct ModelConstants
 {
     glm::mat4x4 worldPos;
+    glm::mat4x4 normalMatrix;
     glm::vec4   baseColor;
     glm::vec3   emissiveFactor;
     float       metallicFactor;
@@ -30,7 +31,6 @@ struct Prim
     DynArray<D3D12_VERTEX_BUFFER_VIEW> bufferViews;
     CComPtr<ID3D12PipelineState>       pPipeline;
     CComPtr<ID3D12RootSignature>       pRootSignature;
-    ModelConstants                     constantBuffer;
 };
 
 struct Mesh

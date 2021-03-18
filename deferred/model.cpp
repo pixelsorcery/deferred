@@ -436,44 +436,44 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
             int matIdx = pModel->meshes[i].primitives[j].material;
             model.paramIdxs.push(matIdx);
 
-            ShaderParams const* pParams = &model.shaderParams[matIdx];
-
-            if (pParams->hasBaseTex)
+            if (matIdx >= 0)
             {
-                macros.push_back({ "BASECOLOR_TEX", "1" });
+                model.paramIdxs.push(matIdx);
+
+                ShaderParams const* pParams = &model.shaderParams[matIdx];
+
+                if (pParams->hasBaseTex)
+                {
+                    macros.push_back({ "BASECOLOR_TEX", "1" });
+                }
+
+                if (pParams->hasNormalTex)
+                {
+                    macros.push_back({ "NORMAL_TEX", "1" });
+                }
+
+                if (pParams->hasRoughnessTex)
+                {
+                    macros.push_back({ "ROUGHNESSMETALLIC_TEX", "1" });
+                }
+
+                if (pParams->hasEmissiveTex)
+                {
+                    macros.push_back({ "EMISSIVE_TEX", "1" });
+                }
+
+                if (pParams->hasOcclusion)
+                {
+                    macros.push_back({ "HAS_OCCLUSION", "1" });
+                }
+
+                if (hasTangent == true)
+                {
+                    macros.push_back({ "HAS_TANGENT", "1" });
+                }
+
+                macros.push_back({ NULL, NULL });
             }
-
-            if (pParams->hasNormalTex)
-            {
-                macros.push_back({ "NORMAL_TEX", "1" });
-            }
-
-            if (pParams->hasRoughnessTex)
-            {
-                macros.push_back({ "ROUGHNESSMETALLIC_TEX", "1" });
-            }
-
-            if (pParams->hasEmissiveTex)
-            {
-                macros.push_back({ "EMISSIVE_TEX", "1" });
-            }
-
-            if (pParams->hasOcclusion)
-            {
-                macros.push_back({ "HAS_OCCLUSION", "1" });
-            }
-
-            if (hasTangent == true)
-            {
-                macros.push_back({ "HAS_TANGENT", "1" });
-            }
-
-            macros.push_back({ NULL, NULL });
-
-            prim.constantBuffer.baseColor       = pParams->baseColor;
-            prim.constantBuffer.emissiveFactor  = pParams->emissiveFactor;
-            prim.constantBuffer.metallicFactor  = pParams->metallicFactor;
-            prim.constantBuffer.roughnessFactor = pParams->roughnessFactor;
 
             CComPtr<ID3DBlob> vs = compileShaderFromFile("gltfPbr.hlsl", "vs_5_1", "mainVS", macros.data());
             CComPtr<ID3DBlob> ps = compileShaderFromFile("gltfPbr.hlsl", "ps_5_1", "mainPS", macros.data());
@@ -547,7 +547,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     model.pCpuConstantBuffer2 = make_unique<char[]>(static_cast<int64>(totalPrimCount) * model.alignedConstantSize);
 
 #if defined(_DEBUG)
-    dbgModel(*pModel);
+    //dbgModel(*pModel);
 #endif
 
     return res;
@@ -572,7 +572,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
     angle += dt;
 
     initWorldMatrix = glm::translate(initWorldMatrix, model.worldPosition);
-    initWorldMatrix = glm::rotate(initWorldMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+    //initWorldMatrix = glm::rotate(initWorldMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
     initWorldMatrix = glm::scale(initWorldMatrix, model.worldScale);
     transformNodes(model, scene.nodes, initWorldMatrix);
 
@@ -590,13 +590,17 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
             // update normal matrix
             pModelConstants->worldPos = model.sceneNodes[i].transformation;
             pModelConstants->worldPos = pRenderer->camera.lookAt() * pModelConstants->worldPos;
-            pModelConstants->worldPos = glm::inverseTranspose(pModelConstants->worldPos);
+            pModelConstants->normalMatrix = glm::inverseTranspose(pModelConstants->worldPos);
             int matIdx = model.TinyGltfModel.meshes[meshIdx].primitives[primidx].material;
 
-            pModelConstants->baseColor = model.shaderParams[matIdx].baseColor;
-            pModelConstants->metallicFactor = model.shaderParams[matIdx].metallicFactor;
-            pModelConstants->roughnessFactor = model.shaderParams[matIdx].roughnessFactor;
-            pModelConstants->emissiveFactor = model.shaderParams[matIdx].emissiveFactor;
+            if (matIdx >= 0)
+            {
+                pModelConstants->baseColor       = model.shaderParams[matIdx].baseColor;
+                pModelConstants->metallicFactor  = model.shaderParams[matIdx].metallicFactor;
+                pModelConstants->roughnessFactor = model.shaderParams[matIdx].roughnessFactor;
+                pModelConstants->emissiveFactor  = model.shaderParams[matIdx].emissiveFactor;
+            }
+
             pModelConstants = reinterpret_cast<ModelConstants*>(reinterpret_cast<char*>(pModelConstants) + model.alignedConstantSize); // ew
 
             *ptr = model.sceneNodes[i].transformation;
