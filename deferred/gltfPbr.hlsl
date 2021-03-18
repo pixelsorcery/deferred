@@ -100,10 +100,10 @@ float V_GGX(float NdotL, float NdotV, float roughness)
 {
     float a2 = roughness * roughness;
 
-    //float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - roughness) + roughness);
-    //float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - roughness) + roughness);
-    float GGXV = NdotL * sqrt((NdotV - a2 * NdotV) * NdotV + a2);
-    float GGXL = NdotV * sqrt((NdotL - a2 * NdotL) * NdotL + a2);
+    float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - a2) + a2);
+    float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - a2) + a2);
+    //float GGXV = NdotL * sqrt((NdotV - a2 * NdotV) * NdotV + a2);
+   // float GGXL = NdotV * sqrt((NdotL - a2 * NdotL) * NdotL + a2);
     float GGX = GGXV + GGXL;
 
     float returnVal = 0.5 / GGX;
@@ -128,13 +128,14 @@ float3 lambertian(float3 diffuseColor)
 
 float3 calcPbrBRDF(float3 diffuseColor, float roughness, float3 f0, float VdotH, float NdotL, float NdotV, float NdotH)
 {
+    roughness = roughness * roughness;
     // calculate specular terms
     float3 F = fresnel(f0, NdotV); // somehow NdotV looks way more correct...TODO why?
     float Vis = V_GGX(NdotL, NdotV, roughness);
     float D = D_GGX(NdotH, roughness);
 
-    float3 diffuse = (1.0 - F)* lambertian(diffuseColor);
-    float3 specular = F* Vis* D;
+    float3 specular = F * Vis * D;
+    float3 diffuse = (1.0 - specular) * lambertian(diffuseColor);
 
     return NdotL * (diffuse + specular);
 }

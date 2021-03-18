@@ -260,7 +260,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
                            glm::vec3(0.0f, 1.0f, 0.0f));  // up
 
     // init perspective projection matrix 
-    pRenderer->projection = MakeInfReversedZProjRH(renderer::fov, 
+    pRenderer->projection = MakeInfReversedZProjRH(glm::radians(renderer::fov), 
                                                    (float)renderer::width / (float)renderer::height,
                                                    0.1f);
 
