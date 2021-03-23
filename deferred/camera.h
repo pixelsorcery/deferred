@@ -1,15 +1,19 @@
 #pragma once
 #include "glm/glm.hpp"
-
+#include "glm/gtc/matrix_transform.hpp"
 // Simple "look at" camera
 struct Camera
 {
-    void init(const glm::vec3 position, const glm::vec3 at, const glm::vec3 up);
-    const glm::mat4 lookAt() const { return viewMat; };
+    const glm::mat4 lookAt() const { return glm::lookAt(position, position + direction, up); };
+
+    float dx;
+    float dy;
+    float speed = 8.0f;
+    glm::vec3 position;
+    glm::vec3 direction;
+    glm::vec3 right;
+    glm::vec3 up;
 
 private:
-    glm::vec3 position;
-    glm::vec3 at;
-    glm::vec3 up;
-    glm::mat4 viewMat;
+    //glm::mat4 viewMat;
 };

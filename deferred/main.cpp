@@ -14,6 +14,9 @@ extern App3* app3;
 
 using namespace std::literals;
 
+#define GETX(l) (int(l & 0xFFFF))
+#define GETY(l) (int(l) >> 16)
+
 LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
@@ -42,10 +45,26 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         return 0;
 
     case WM_MOUSEMOVE:
+        static int lastX, lastY;
+        int x, y;
+        x = GETX(lparam);
+        y = GETY(lparam);
+        app2->onMouseMove(x, y, x - lastX, y - lastY);
+        lastX = x;
+        lastY = y;
         break;
     case WM_KEYDOWN:
+        if (wparam == VK_ESCAPE)
+        {
+            PostQuitMessage(0);
+        }
+        else
+        {
+            app2->onKey((unsigned int)wparam, true);
+        }
         break;
     case WM_KEYUP:
+        app->onKey((unsigned int)wparam, false);
         break;
     case WM_SYSKEYDOWN:
         break;
@@ -95,7 +114,7 @@ int WINAPI WinMain(HINSTANCE hThisInst, HINSTANCE hLastInst, LPSTR lpszCmdLine, 
         std::chrono::duration<float> deltaTime = newTime - oldTime;
 
         // render frame
-        app2->drawFrame(deltaTime/5s);
+        app2->drawFrame(deltaTime/1s);
         oldTime = newTime;
     }
 

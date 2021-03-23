@@ -62,6 +62,7 @@ struct DescriptorHeap
 
 struct Dx12Renderer
 {
+    HWND                          hwnd;
     CComPtr<IDXGISwapChain3>      pSwapChain;
     CComPtr<ID3D12Device>         pDevice;
     CComPtr<ID3D12CommandQueue>   pCommandQueue;
@@ -112,3 +113,5 @@ void submitCmdBuffer(Dx12Renderer* pRenderer);
 void present(Dx12Renderer* pRenderer, vsyncType vsync);
 Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width, uint height, DXGI_FORMAT format);
 bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, uint width, uint height, uint comp, DXGI_FORMAT format);
+void updateCamera(Dx12Renderer* pRenderer, int mousex, int mousey, int mousedx, int mousedy);
+void updateCamera(Dx12Renderer* pRenderer, const bool keys[256], float dt);

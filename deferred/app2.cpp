@@ -26,35 +26,38 @@ bool App2::init(HWND hwnd)
     GltfModel model = {};
     GltfModel lantern = {};
     GltfModel spheres = {};
-    //result = loadModel(pRenderer.get(), box, "..\\models\\BoxTextured.gltf");
-    //box.worldScale = glm::vec3(10.0f, 10.0f, 10.0f);
-    //box.worldPosition = glm::vec3(-25.0f, -15.0f, 0.0f);
-    //models.push_back(box);
-    //result = loadModel(pRenderer.get(), duck, "..\\models\\duck\\Duck.gltf");
-    //duck.worldScale = glm::vec3(5.0f, 5.0f, 5.0f);
-    //duck.worldPosition = glm::vec3(-20.0f, 15.0f, 0.0f);
-    //models.push_back(duck);
-    //result = loadModel(pRenderer.get(), model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
-    //model.worldScale = glm::vec3(0.02f, 0.02f, 0.02f);
-    //model.worldPosition = glm::vec3(15.0f, 15.0f, 0.0f);
-    ////model.worldScale = glm::vec3(0.07f, 0.07f, 0.07f);
-    ////model.worldPosition = glm::vec3(0.0f, 10.0f, 0.0f);
-    //models.push_back(model);
-    //result = loadModel(pRenderer.get(), lantern, "..\\models\\lantern\\lantern.gltf");
-    //lantern.worldPosition = glm::vec3(20.0f, -10.0f, 0.0f);
-    //model.worldScale = glm::vec3(0.09f, 0.09f, 0.09f);
-    //models.push_back(lantern);
+    result = loadModel(pRenderer.get(), box, "..\\models\\BoxTextured.gltf");
+    box.worldScale = glm::vec3(10.0f, 10.0f, 10.0f);
+    box.worldPosition = glm::vec3(-25.0f, -15.0f, 0.0f);
+    models.push_back(box);
+    result = loadModel(pRenderer.get(), duck, "..\\models\\duck\\Duck.gltf");
+    duck.worldScale = glm::vec3(5.0f, 5.0f, 5.0f);
+    duck.worldPosition = glm::vec3(-20.0f, 15.0f, 0.0f);
+    models.push_back(duck);
+    result = loadModel(pRenderer.get(), model, "..\\models\\2cylinderengine\\2CylinderEngine.gltf");
+    model.worldScale = glm::vec3(0.02f, 0.02f, 0.02f);
+    model.worldPosition = glm::vec3(15.0f, 15.0f, 0.0f);
+    //model.worldScale = glm::vec3(0.07f, 0.07f, 0.07f);
+    //model.worldPosition = glm::vec3(0.0f, 10.0f, 0.0f);
+    models.push_back(model);
+    result = loadModel(pRenderer.get(), lantern, "..\\models\\lantern\\lantern.gltf");
+    lantern.worldPosition = glm::vec3(20.0f, -10.0f, 0.0f);
+    model.worldScale = glm::vec3(0.09f, 0.09f, 0.09f);
+    models.push_back(lantern);
 
-    result = loadModel(pRenderer.get(), spheres, "..\\models\\MetalRoughSpheresNoTextures.gltf");
-    spheres.worldPosition = glm::vec3(-30.0f, -30.0f, -30.0f);
-    spheres.worldScale = glm::vec3(10000.0f, 10000.0f, 10000.0f);
-    models.push_back(spheres);
+    //result = loadModel(pRenderer.get(), spheres, "..\\models\\MetalRoughSpheresNoTextures.gltf");
+    //spheres.worldPosition = glm::vec3(-30.0f, -30.0f, -30.0f);
+    //spheres.worldScale = glm::vec3(10000.0f, 10000.0f, 10000.0f);
+    //models.push_back(spheres);
 
     return result;
 }
 
 void App2::drawFrame(float time)
 {
+    // camera
+    updateCamera(pRenderer.get(), keys, time);
+
     // clear
     HRESULT hr = S_OK;
 
@@ -87,4 +90,20 @@ void App2::drawFrame(float time)
 
     // present
     present(pRenderer.get(), vsyncOff);
+}
+
+void App2::onMouseMove(int x, int y, int dx, int dy)
+{
+    // note: this is here because SetCursorPos will generate a WM_MOUSEMOVE message, 
+    // so we want to ignore that one
+    static bool changed = false;
+    if (changed = !changed)
+    {
+        updateCamera(pRenderer.get(), x, y, dx, dy);
+    }
+}
+
+void App2::onKey(const uint32_t key, bool pressed)
+{
+    keys[key] = pressed;
 }

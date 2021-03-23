@@ -15,6 +15,8 @@ public:
     App();
     bool init(HWND hwnd);
     void drawFrame();
+    void onMouseMove(int x, int y, int dx, int dy);
+    void onKey(const uint32_t key, bool pressed) {};
 private:
     std::unique_ptr<Dx12Renderer> pRenderer;
     CComPtr<ID3D12Resource>       vertexBuffer;

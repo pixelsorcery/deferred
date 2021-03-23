@@ -25,6 +25,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 {
     HRESULT hr = S_OK;
 
+    pRenderer->hwnd = hwnd;
     CComPtr<IDXGIFactory1> dxgiFactory;
     hr = CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory));
     if (FAILED(hr))
@@ -253,11 +254,6 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 
     pRenderer->dsDescHandle = pRenderer->heapMgr.mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]->GetCPUDescriptorHandleForHeapStart();
     pDevice->CreateDepthStencilView(pRenderer->depthStencil, &dsvDesc, pRenderer->dsDescHandle);
-
-    // init view
-    pRenderer->camera.init(glm::vec3(0.0f, 00.0f, 30.0f), // eye
-                           glm::vec3(0.0f, 0.0f, 0.0f),   // center
-                           glm::vec3(0.0f, 1.0f, 0.0f));  // up
 
     // init perspective projection matrix 
     pRenderer->projection = MakeInfReversedZProjRH(glm::radians(renderer::fov), 
@@ -542,4 +538,53 @@ Dx12Renderer::~Dx12Renderer()
     //HRESULT hr = pDevice->QueryInterface(__uuidof(ID3D12DebugDevice1), reinterpret_cast<void**>(&debugDevice));
     //debugDevice->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL);
 #endif
+}
+
+void updateCamera(Dx12Renderer* pRenderer, int mousex, int mousey, int mousedx, int mousedy)
+{
+    bool invertMouse = false;
+    float mouseSensitivity = 0.001f;
+
+    // note: this is here because SetCursorPos will generate a WM_MOUSEMOVE message, 
+    // so we want to ignore that one
+    static bool changed = false;
+    if (changed = !changed)
+    {
+        Camera *pCamera = &pRenderer->camera;
+        pCamera->dx += mouseSensitivity * (renderer::width / 2 - mousex);
+        pCamera->dy += (invertMouse ? -1 : 1) * mouseSensitivity * (renderer::height / 2 - mousey);
+
+        pCamera->direction = glm::vec3(cos(pCamera->dy) * sin(pCamera->dx), sin(pCamera->dy), cos(pCamera->dy) * cos(pCamera->dx));
+        pCamera->right = glm::vec3(sin(pCamera->dx - 3.1415f / 2.0f), 0, cos(pCamera->dx - 3.1415f / 2.0f));
+        pCamera->up = glm::cross(pCamera->right, pCamera->direction);
+
+#if _DEBUG
+        char str[1024];
+        wchar_t wc[1024];
+        sprintf_s((char*)str, 1024, "dx: %f, dy: %f\n", pCamera->dx, pCamera->dy);
+        const size_t cSize = strlen(str) + 1;
+        size_t outSize;
+        mbstowcs_s(&outSize, wc, cSize, str, cSize - 1);
+        OutputDebugStringW(wc);
+#endif
+
+        POINT point = { renderer::width / 2, renderer::height / 2 };
+        ClientToScreen(pRenderer->hwnd, &point);
+        SetCursorPos(point.x, point.y);
+        ShowCursor(false);
+    }
+}
+
+
+void updateCamera(Dx12Renderer* pRenderer, const bool keys[256], float dt)
+{
+    Camera* pCamera = &pRenderer->camera;
+    if (keys['W']) 
+        pCamera->position += pCamera->direction * 1.0f * pCamera->speed * dt;
+    if (keys['S']) 
+        pCamera->position -= pCamera->direction * 1.0f * pCamera->speed * dt;
+    if (keys['A'])
+        pCamera->position -= pCamera->right * 1.0f * pCamera->speed * dt;
+    if (keys['D']) 
+        pCamera->position += pCamera->right * 1.0f * pCamera->speed * dt;
 }

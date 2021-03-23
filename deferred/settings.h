@@ -7,4 +7,6 @@ static constexpr int height               = 1280;
 static constexpr int swapChainBufferCount = 4;
 static constexpr int submitQueueDepth     = 4;
 static constexpr float fov                = 60.0f;
+static bool invertMouse                   = false;
+static float mouseSensitivity             = 0.001f;
 }
