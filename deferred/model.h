@@ -20,6 +20,7 @@ struct ModelConstants
     glm::mat4x4 normalMatrix;
     glm::vec4   baseColor;
     glm::vec3   emissiveFactor;
+    glm::vec3   cameraPos;
     float       metallicFactor;
     float       roughnessFactor;
 };

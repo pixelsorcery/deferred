@@ -12,6 +12,7 @@ cbuffer CB1 : register(b1)
     matrix NormalMat;
     float4 baseColor;
     float3 emissiveFactor;
+    float3 cameraPos;
     float  metallicFactor;
     float  roughnessFactor;
 };
@@ -178,7 +179,6 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     color += emissiveFactor;
 #endif
 
-    float3 cameraPos = float3(0.0f, 00.0f, 30.0f);
     float3 v = normalize(cameraPos - input.WorldPos.xyz);
     float3 n = normalize(input.Normal);
     float3 l = normalize(light);

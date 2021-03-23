@@ -587,4 +587,13 @@ void updateCamera(Dx12Renderer* pRenderer, const bool keys[256], float dt)
         pCamera->position -= pCamera->right * 1.0f * pCamera->speed * dt;
     if (keys['D']) 
         pCamera->position += pCamera->right * 1.0f * pCamera->speed * dt;
+#if _DEBUG
+    char str[1024];
+    wchar_t wc[1024];
+    sprintf_s((char*)str, 1024, "pos: %f, %f, %f\n", pCamera->position.x, pCamera->position.y, pCamera->position.z);
+    const size_t cSize = strlen(str) + 1;
+    size_t outSize;
+    mbstowcs_s(&outSize, wc, cSize, str, cSize - 1);
+    OutputDebugStringW(wc);
+#endif
 }
