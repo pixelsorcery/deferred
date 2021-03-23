@@ -6,8 +6,8 @@ struct Camera
 {
     const glm::mat4 lookAt() const { return glm::lookAt(position, position + direction, up); };
 
-    float dx;
-    float dy;
+    float dx = 0.f;
+    float dy = 0.f;
     float speed = 8.0f;
     glm::vec3 position;
     glm::vec3 direction;

@@ -64,7 +64,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
         }
         break;
     case WM_KEYUP:
-        app->onKey((unsigned int)wparam, false);
+        app2->onKey((unsigned int)wparam, false);
         break;
     case WM_SYSKEYDOWN:
         break;
