@@ -116,7 +116,7 @@ float V_GGX(float NdotL, float NdotV, float roughness)
 // Distribution of facets oriented in H direction
 float D_GGX(float NdotH, float roughness)
 {
-    float a2 = roughness * roughness;
+    float a2 = roughness * roughness + 0.000001;
     float f = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
     return a2 / (PI * f * f);
 }
@@ -136,7 +136,7 @@ float3 calcPbrBRDF(float3 diffuseColor, float roughness, float metallic, float3 
     float D = D_GGX(NdotH, roughness);
 
     float3 specular = F * Vis * D;
-    float3 diffuse = (1.0 - specular) * lambertian(diffuseColor) * (1.0 - metallic);
+    float3 diffuse = lambertian(diffuseColor) * (1.0 - metallic);
 
     return NdotL * (diffuse + specular);
 }
