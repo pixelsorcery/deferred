@@ -127,7 +127,7 @@ float3 lambertian(float3 diffuseColor)
     return diffuseColor / PI;
 }
 
-float3 calcPbrBRDF(float3 diffuseColor, float roughness, float3 f0, float VdotH, float NdotL, float NdotV, float NdotH)
+float3 calcPbrBRDF(float3 diffuseColor, float roughness, float metallic, float3 f0, float VdotH, float NdotL, float NdotV, float NdotH)
 {
     roughness = roughness * roughness;
     // calculate specular terms
@@ -136,7 +136,7 @@ float3 calcPbrBRDF(float3 diffuseColor, float roughness, float3 f0, float VdotH,
     float D = D_GGX(NdotH, roughness);
 
     float3 specular = F * Vis * D;
-    float3 diffuse = (1.0 - specular) * lambertian(diffuseColor);
+    float3 diffuse = (1.0 - specular) * lambertian(diffuseColor) * (1.0 - metallic);
 
     return NdotL * (diffuse + specular);
 }
@@ -189,7 +189,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float NdotV = clamp(dot(n, v), 0, 1);
     float NdotH = clamp(dot(n, h), 0, 1);
 
-    float3 pbrColor = lightIntensity * calcPbrBRDF(color, roughness, f0, VdotH, NdotL, NdotV, NdotH);
+    float3 pbrColor = lightIntensity * calcPbrBRDF(color, roughness, metallic, f0, VdotH, NdotL, NdotV, NdotH);
     return float4(pbrColor, 1.0f);
     //float3 diffuse = saturate(dot(normal, light)) * color;
     //return float4(diffuse, 1.0f);
