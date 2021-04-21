@@ -260,6 +260,8 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
                                                    (float)renderer::width / (float)renderer::height,
                                                    0.1f);
 
+    pRenderer->camera.position = glm::vec3(0.0f, 0.0f, -100.0f);
+
     return true;
 }
 

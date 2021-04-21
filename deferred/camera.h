@@ -8,7 +8,7 @@ struct Camera
 
     float dx = 0.f;
     float dy = 0.f;
-    float speed = 8.0f;
+    float speed = 12.0f;
     glm::vec3 position;
     glm::vec3 direction;
     glm::vec3 right;

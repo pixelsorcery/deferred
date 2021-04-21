@@ -589,7 +589,6 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
         {
             // update normal matrix
             pModelConstants->worldPos = model.sceneNodes[i].transformation;
-            //pModelConstants->worldPos = pRenderer->camera.lookAt() * pModelConstants->worldPos;
             pModelConstants->normalMatrix = glm::inverseTranspose(pModelConstants->worldPos);
             int matIdx = model.TinyGltfModel.meshes[meshIdx].primitives[primidx].material;
 
@@ -599,7 +598,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
                 pModelConstants->metallicFactor  = model.shaderParams[matIdx].metallicFactor;
                 pModelConstants->roughnessFactor = model.shaderParams[matIdx].roughnessFactor;
                 pModelConstants->emissiveFactor  = model.shaderParams[matIdx].emissiveFactor;
-                pModelConstants->cameraPos       = pModelConstants->worldPos * glm::vec4(pRenderer->camera.position, 1.f);
+                pModelConstants->cameraPos       = glm::vec4(pRenderer->camera.position, 1.f);
             }
 
             pModelConstants = reinterpret_cast<ModelConstants*>(reinterpret_cast<char*>(pModelConstants) + model.alignedConstantSize); // ew

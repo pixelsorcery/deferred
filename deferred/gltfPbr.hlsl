@@ -143,7 +143,7 @@ float3 calcPbrBRDF(float3 diffuseColor, float roughness, float3 f0, float VdotH,
 
 float4 mainPS(PS_INPUT input) : SV_TARGET
 {
-    float3 light = normalize(float3(00.0, 30.0, -30.0));
+    float3 light = normalize(float3(00.0, 300.0, -300.0));
     float roughness = 0.0;
     float metallic = 0.0;
     float3 color = float3(1.0, 1.0, 1.0);
