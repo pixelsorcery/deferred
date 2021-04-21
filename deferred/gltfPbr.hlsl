@@ -103,8 +103,6 @@ float V_GGX(float NdotL, float NdotV, float roughness)
 
     float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - a2) + a2);
     float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - a2) + a2);
-    //float GGXV = NdotL * sqrt((NdotV - a2 * NdotV) * NdotV + a2);
-   // float GGXL = NdotV * sqrt((NdotL - a2 * NdotL) * NdotL + a2);
     float GGX = GGXV + GGXL;
 
     float returnVal = 0.5 / GGX;
@@ -131,7 +129,7 @@ float3 calcPbrBRDF(float3 diffuseColor, float roughness, float metallic, float3 
 {
     roughness = roughness * roughness;
     // calculate specular terms
-    float3 F = fresnel(f0, NdotV); // somehow NdotV looks way more correct...TODO why?
+    float3 F = fresnel(f0, VdotH);
     float Vis = V_GGX(NdotL, NdotV, roughness);
     float D = D_GGX(NdotH, roughness);
 
@@ -190,6 +188,12 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float NdotH = clamp(dot(n, h), 0, 1);
 
     float3 pbrColor = lightIntensity * calcPbrBRDF(color, roughness, metallic, f0, VdotH, NdotL, NdotV, NdotH);
+
+    // HDR tonemapping
+    //pbrColor = pbrColor / (pbrColor + float3(1.0, 1.0, 1.0));
+    // gamma correct
+    pbrColor = pow(abs(pbrColor), (1.0 / 2.2));
+
     return float4(pbrColor, 1.0f);
     //float3 diffuse = saturate(dot(normal, light)) * color;
     //return float4(diffuse, 1.0f);
