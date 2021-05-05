@@ -57,12 +57,8 @@ Texture2D roughnessTex  : register(t1);
 Texture2D normalTex     : register(t2);
 #endif
 
-#ifdef OCCLUSION_TEX
-Texture2D occlusionTex  : register(t3);
-#endif
-
 #ifdef EMISSIVE_TEX
-Texture2D emissiveTex   : register(t4);
+Texture2D emissiveTex   : register(t3);
 #endif
 
 #ifdef BASECOLOR_TEX
@@ -141,7 +137,7 @@ float3 calcPbrBRDF(float3 diffuseColor, float roughness, float metallic, float3 
 
 float4 mainPS(PS_INPUT input) : SV_TARGET
 {
-    float3 light = normalize(float3(00.0, 300.0, -300.0));
+    float3 light = normalize(float3(00.0, 3.0, -3.0));
     float roughness = 0.0;
     float metallic = 0.0;
     float3 color = float3(1.0, 1.0, 1.0);
@@ -173,8 +169,8 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     metallic = metallicFactor;
 #endif
     f0 = lerp(f0, baseColor.rgb, metallic);
-#ifdef HAS_EMISSIVE
-    color += emissiveFactor;
+#ifdef EMISSIVE_TEX
+    color += emissiveFactor * emissiveTex.Sample(samLinear, input.Tex.xy).rgb;
 #endif
 
     float3 v = normalize(cameraPos - input.WorldPos.xyz);
@@ -190,7 +186,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float3 pbrColor = lightIntensity * calcPbrBRDF(color, roughness, metallic, f0, VdotH, NdotL, NdotV, NdotH);
 
     // HDR tonemapping
-    //pbrColor = pbrColor / (pbrColor + float3(1.0, 1.0, 1.0));
+    pbrColor = pbrColor / (pbrColor + float3(1.0, 1.0, 1.0));
     // gamma correct
     pbrColor = pow(abs(pbrColor), (1.0 / 2.2));
 

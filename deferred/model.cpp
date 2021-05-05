@@ -204,7 +204,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
         uploadTexture(pRenderer,
             textureResource,
-            &pModel->images[i].image[i],
+            &pModel->images[i].image[0],
             pModel->images[i].width,
             pModel->images[i].height,
             pModel->images[i].component,
