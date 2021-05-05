@@ -169,9 +169,6 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     metallic = metallicFactor;
 #endif
     f0 = lerp(f0, baseColor.rgb, metallic);
-#ifdef EMISSIVE_TEX
-    color += emissiveFactor * emissiveTex.Sample(samLinear, input.Tex.xy).rgb;
-#endif
 
     float3 v = normalize(cameraPos - input.WorldPos.xyz);
     float3 n = normalize(input.Normal);
@@ -185,8 +182,12 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
 
     float3 pbrColor = lightIntensity * calcPbrBRDF(color, roughness, metallic, f0, VdotH, NdotL, NdotV, NdotH);
 
+#ifdef EMISSIVE_TEX
+    pbrColor += emissiveFactor * emissiveTex.Sample(samLinear, input.Tex.xy).rgb;
+#endif
+
     // HDR tonemapping
-    pbrColor = pbrColor / (pbrColor + float3(1.0, 1.0, 1.0));
+    //pbrColor = pbrColor / (pbrColor + float3(1.0, 1.0, 1.0));
     // gamma correct
     pbrColor = pow(abs(pbrColor), (1.0 / 2.2));
 
