@@ -26,6 +26,9 @@ bool App2::init(HWND hwnd)
     GltfModel model = {};
     GltfModel lantern = {};
     GltfModel spheres = {};
+
+#define DRAWMODELS 1
+#if DRAWMODELS
     result = loadModel(pRenderer.get(), box, "..\\models\\BoxTextured.gltf");
     box.worldScale = glm::vec3(10.0f, 10.0f, 10.0f);
     box.worldPosition = glm::vec3(-25.0f, -15.0f, 0.0f);
@@ -51,12 +54,12 @@ bool App2::init(HWND hwnd)
     lantern.worldRotation = glm::vec3(0.0f, 0.0, 1.0f);
     lantern.rotationAngle = 3.14159;
     models.push_back(lantern);
-
-    //result = loadModel(pRenderer.get(), spheres, "..\\models\\MetalRoughSpheresNoTextures.gltf");
-    //spheres.worldPosition = glm::vec3(0.0f, 0.0f, 0.0f);
-    //spheres.worldScale = glm::vec3(10000.0f, 10000.0f, 10000.0f);
-    //models.push_back(spheres);
-
+#else
+    result = loadModel(pRenderer.get(), spheres, "..\\models\\MetalRoughSpheresNoTextures.gltf");
+    spheres.worldPosition = glm::vec3(0.0f, 0.0f, 0.0f);
+    spheres.worldScale = glm::vec3(10000.0f, 10000.0f, 10000.0f);
+    models.push_back(spheres);
+#endif
     return result;
 }
 
