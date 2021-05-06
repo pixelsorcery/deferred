@@ -91,6 +91,7 @@ struct GltfModel
     glm::vec3                                 worldScale;
     glm::vec3                                 worldRotation;
     glm::vec3                                 worldPosition;
+    float                                     rotationAngle;
     DynArray<ShaderParams>                    shaderParams;
     DynArray<int>                             paramIdxs;
     int                                       totalPrimCount;

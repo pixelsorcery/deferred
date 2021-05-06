@@ -573,6 +573,10 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
 
     initWorldMatrix = glm::translate(initWorldMatrix, model.worldPosition);
     //initWorldMatrix = glm::rotate(initWorldMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+    if (model.rotationAngle > 0.0)
+    {
+        initWorldMatrix = glm::rotate(initWorldMatrix, model.rotationAngle, model.worldRotation);
+    }
     initWorldMatrix = glm::scale(initWorldMatrix, model.worldScale);
     transformNodes(model, scene.nodes, initWorldMatrix);
 

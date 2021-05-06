@@ -71,9 +71,15 @@ PS_INPUT mainVS(VS_INPUT input)
 
     output.Pos = mul(MVP, float4(input.Pos, 1.0));
     output.WorldPos = mul(WorldMat, float4(input.Pos, 1.0));
-    output.Normal = normalize(mul(NormalMat, float4(input.Normal, 1.0)).xyz);
+    output.Normal = normalize(mul(NormalMat, float4(input.Normal, 0)).xyz);
+
 #ifdef BASECOLOR_TEX
     output.Tex = input.Tex;
+#endif
+
+#ifdef HAS_TANGENT
+    output.Tangent = normalize(mul(NormalMat, float4(input.Tangent.xyz, 0)).xyz);
+    output.Bitangent = cross(output.Normal, output.Tangent) * input.Tangent.w;
 #endif
 
     return output;
@@ -171,7 +177,15 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     f0 = lerp(f0, baseColor.rgb, metallic);
 
     float3 v = normalize(cameraPos - input.WorldPos.xyz);
+#if HAS_TANGENT
+    float3 n = normalTex.Sample(samLinear, input.Tex.xy).xyz;
+    n = n * 2.0 - 1.0;
+    float3x3 tbn = float3x3(input.Tangent, input.Bitangent, input.Normal);
+    //n = normalize(n.x * input.Tangent - n.y * input.Bitangent + n.z * input.Normal);
+    n = mul(transpose(tbn), n);
+#else
     float3 n = normalize(input.Normal);
+#endif
     float3 l = normalize(light);
     float3 h = normalize(l + v);
 
