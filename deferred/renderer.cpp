@@ -84,6 +84,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     {
         pRenderer->currentSubmission = 0;
         CmdSubmission* sub = &pRenderer->cmdSubmissions[i];
+        sub->completionFenceVal = 2;
 
         // command allocator
         hr = pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&sub->cmdAlloc));
@@ -138,14 +139,14 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
     }
 
     // Submission fence
-    uint64 submitCount = 1;
-    hr = pDevice->CreateFence(submitCount, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pRenderer->pSubmitFence));
+    pRenderer->submitCount = 1;
+    hr = pDevice->CreateFence(pRenderer->submitCount, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&pRenderer->pSubmitFence));
     if (FAILED(hr))
     {
         ErrorMsg("Couldn't create submission fence");
         return false;
     }
-
+    pRenderer->submitCount++;
     pRenderer->fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     // create render target view descriptor heap for displayable back buffers
@@ -260,7 +261,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
                                                    (float)renderer::width / (float)renderer::height,
                                                    0.1f);
 
-    pRenderer->camera.position = glm::vec3(0.0f, 0.0f, -100.0f);
+    pRenderer->camera.position = glm::vec3(0.0f, 0.0f, -1.0f);
 
     return true;
 }
@@ -337,21 +338,23 @@ bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void cons
 
     D3D12_RESOURCE_DESC desc = pResource->GetDesc();
 
+    // get copy buffer dimenions
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp;
+    uint64 rowSize, totalBytes;
+    pDevice->GetCopyableFootprints(&desc, 0, 1, 0, &fp, nullptr, &rowSize, &totalBytes);
+
     // create upload buffer
     CComPtr<ID3D12Resource> uploadTemp;
-    uploadTemp = createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, width * height * comp, D3D12_RESOURCE_STATE_GENERIC_READ);
+    uploadTemp = createBuffer(pRenderer, D3D12_HEAP_TYPE_UPLOAD, fp.Footprint.RowPitch * height, D3D12_RESOURCE_STATE_GENERIC_READ);
     uploadTemp->SetName(L"Temp Upload Texture");
 
     unsigned char* pBufData;
     uploadTemp->Map(0, nullptr, reinterpret_cast<void**>(&pBufData));
 
     // copy data to buffer
+    // todo: This is wrong for small resources like 4x4 textures with a 256 row pitch.
     memcpy(pBufData, data, static_cast<size_t>(width) * height * comp);
     uploadTemp->Unmap(0, nullptr);
-
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp;
-    uint64 rowSize, totalBytes;
-    pDevice->GetCopyableFootprints(&desc, 0, 1, 0, &fp, nullptr, &rowSize, &totalBytes);
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc, destLoc;
     srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
@@ -480,6 +483,10 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
 
     // Get next submission and wait if we have to
     UINT nextSubmissionIdx = (pRenderer->currentSubmission + 1) % renderer::submitQueueDepth;
+
+    char fenceValueStr[1024];
+    sprintf_s(fenceValueStr, "pRenderer->pSubmitFence->GetCompletedValue(): %llu\n", pRenderer->pSubmitFence->GetCompletedValue());
+    OutputDebugString(fenceValueStr);
 
     if (pRenderer->pSubmitFence->GetCompletedValue() < pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal)
     {
