@@ -12,8 +12,8 @@ cbuffer CB1 : register(b1)
     matrix NormalMat;
     float4 baseColor;
     float3 emissiveFactor;
-    float3 cameraPos;
     float  metallicFactor;
+    float3 cameraPos;
     float  roughnessFactor;
 };
 
@@ -203,7 +203,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     // HDR tonemapping
     //pbrColor = pbrColor / (pbrColor + float3(1.0, 1.0, 1.0));
     // gamma correct
-    pbrColor = pow(abs(pbrColor), (1.0 / 2.2));
+    //pbrColor = pow(abs(pbrColor), (1.0 / 2.2));
 
     return float4(pbrColor, 1.0f);
     //float3 diffuse = saturate(dot(normal, light)) * color;

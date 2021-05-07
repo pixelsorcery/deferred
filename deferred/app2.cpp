@@ -52,7 +52,7 @@ bool App2::init(HWND hwnd)
     result = loadModel(pRenderer.get(), lantern, "..\\models\\lantern\\lantern.gltf");
     lantern.worldPosition = glm::vec3(15.0f, -20.0f, 0.0f);
     lantern.worldRotation = glm::vec3(0.0f, 0.0, 1.0f);
-    lantern.rotationAngle = 3.14159;
+    lantern.rotationAngle = 3.14159f;
     models.push_back(lantern);
 #else
     result = loadModel(pRenderer.get(), spheres, "..\\models\\MetalRoughSpheresNoTextures.gltf");
