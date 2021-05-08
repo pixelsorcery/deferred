@@ -9,6 +9,7 @@
 #include "camera.h"
 #include "heapMgr.h"
 #include "glm/glm.hpp"
+#include "dynArray.h"
 
 struct CmdSubmission
 {
@@ -100,6 +101,12 @@ struct Dx12Renderer
 
     glm::mat4 projection;
 
+    // List of textures loaded
+    DynArray<Texture> textures;
+
+    // List of shaders
+    // List of buffers
+
     ~Dx12Renderer();
 };
 
@@ -111,7 +118,7 @@ void waitOnFence(Dx12Renderer* pRenderer, ID3D12Fence* fence, UINT64 targetValue
 void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_STATE_DESC* desc);
 void submitCmdBuffer(Dx12Renderer* pRenderer);
 void present(Dx12Renderer* pRenderer, vsyncType vsync);
-Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width, uint height, DXGI_FORMAT format);
+int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width, uint height, DXGI_FORMAT format);
 bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, uint width, uint height, uint comp, DXGI_FORMAT format);
 void updateCamera(Dx12Renderer* pRenderer, int mousex, int mousey, int mousedx, int mousedy);
 void updateCamera(Dx12Renderer* pRenderer, const bool keys[256], float dt);

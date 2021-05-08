@@ -25,7 +25,7 @@ struct ModelConstants
     float       roughnessFactor;
 };
 
-struct Prim
+struct PrimitiveInfo
 {
     D3D12_INDEX_BUFFER_VIEW            indexBufView;
     uint                               indexBufSize;
@@ -36,7 +36,7 @@ struct Prim
 
 struct Mesh
 {
-    DynArray<Prim> prims;
+    DynArray<PrimitiveInfo> prims;
 };
 
 struct SceneNode
@@ -45,7 +45,7 @@ struct SceneNode
     glm::mat4 transformation;
 };
 
-struct ShaderParams
+struct MaterialDesc
 {
     glm::vec4 baseColor;
     glm::vec3 emissiveFactor;
@@ -70,7 +70,6 @@ struct GltfModel
     std::vector<int>                          PrimitiveBufCounts;
     CComPtr<ID3D12RootSignature>              pRootSignature;
     tinygltf::Model                           TinyGltfModel;
-    std::vector<Texture>                      Textures;
     std::vector<uint>                         IndexBufSize;
     uint                                      NumPrimitives;
     CComPtr<ID3D12DescriptorHeap>             TextureDescriptorHeap;
@@ -91,7 +90,20 @@ struct GltfModel
     glm::vec3                                 worldRotation;
     glm::vec3                                 worldPosition;
     float                                     rotationAngle;
-    DynArray<ShaderParams>                    shaderParams;
+    DynArray<MaterialDesc>                    shaderParams;
     DynArray<int>                             paramIdxs;
     int                                       totalPrimCount;
+    DynArray<int>                             textureIDs;
+};
+
+struct MaterialInfo
+{
+
+};
+
+struct ModelMesh
+{
+    ModelConstants constants;
+    PrimitiveInfo  primitiveInfo;
+    MaterialDesc   materialDesc;
 };

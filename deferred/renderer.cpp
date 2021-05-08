@@ -208,7 +208,7 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
         return false;
     }
 
-    // create cb upload heaps // todo make this one ring buffer
+    // create cb upload heaps
     for (int i = 0; i < renderer::swapChainBufferCount; ++i)
     {
         CComPtr<ID3D12Resource> cbvSrvUploadHeap;
@@ -300,7 +300,7 @@ CComPtr<ID3D12Resource> createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_T
     return resource;
 }
 
-Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width, uint height, DXGI_FORMAT format)
+int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width, uint height, DXGI_FORMAT format)
 {
     Texture tex = {};
 
@@ -325,10 +325,18 @@ Texture createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint wi
     desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 
     hr = pRenderer->pDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE,
-        &desc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&tex.pRes));
+        &desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&tex.pRes));
     tex.desc = desc;
 
-    return tex;
+    if (FAILED(hr))
+    {
+        ErrorMsg("Failed to create texture.");
+        return -1;
+    }
+
+    pRenderer->textures.push(tex);
+
+    return pRenderer->textures.size - 1;
 }
 
 bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, uint width, uint height, uint comp, DXGI_FORMAT format)

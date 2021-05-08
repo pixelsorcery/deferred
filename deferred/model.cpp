@@ -131,14 +131,12 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
     if (res == false) return false;
 
-    DynArray<D3D12_RESOURCE_DESC> resourceDescArray;
-
     tinygltf::Model* pModel = &model.TinyGltfModel;
 
     // read in materials
     for (auto& material : pModel->materials)
     {
-        ShaderParams param = {};
+        MaterialDesc param = {};
         param.baseColor.r = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[0]);
         param.baseColor.g = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[1]);
         param.baseColor.b = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[2]);
@@ -178,49 +176,33 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     // create textures
     for (size_t i = 0; i < pModel->images.size(); i++)
     {
-        D3D12_HEAP_PROPERTIES heapProps = {};
-        heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+        int textureId = createTexture(pRenderer,
+                                      D3D12_HEAP_TYPE_DEFAULT,
+                                      pModel->images[i].width,
+                                      pModel->images[i].height,
+                                      DXGI_FORMAT_R8G8B8A8_UNORM);
 
-        D3D12_RESOURCE_DESC resourceDesc = {};
-        resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-        resourceDesc.Height = pModel->images[i].height;
-        resourceDesc.Width = pModel->images[i].width;
-        resourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;// GetFormat(pModel->images[i].component, pModel->images[i].pixel_type); //todo verify this
-        resourceDesc.MipLevels = 1;
-        resourceDesc.SampleDesc.Count = 1;
-        resourceDesc.DepthOrArraySize = 1;
-
-        D3D12_HEAP_FLAGS flags = D3D12_HEAP_FLAG_NONE;
-        D3D12_RESOURCE_STATES resourceState = D3D12_RESOURCE_STATE_COPY_DEST;
-
-        CComPtr<ID3D12Resource> textureResource = nullptr;
-        hr = pDevice->CreateCommittedResource(&heapProps, flags, &resourceDesc, resourceState, nullptr, __uuidof(ID3D12Resource), (void**)&textureResource);
-
-        if (FAILED(hr))
+        if (textureId != -1)
         {
-            ErrorMsg("Failed to create texture for model.");
+            model.textureIDs.push(textureId);
+
+            uploadTexture(pRenderer,
+                pRenderer->textures[textureId].pRes,
+                &pModel->images[i].image[0],
+                pModel->images[i].width,
+                pModel->images[i].height,
+                pModel->images[i].component,
+                pRenderer->textures[textureId].desc.Format);
+        }
+        else
+        {
             return false;
         }
-
-        uploadTexture(pRenderer,
-            textureResource,
-            &pModel->images[i].image[0],
-            pModel->images[i].width,
-            pModel->images[i].height,
-            pModel->images[i].component,
-            resourceDesc.Format);
-
-        Texture tex = {};
-        tex.pRes = textureResource;
-        tex.desc = resourceDesc;
-        model.Textures.push_back(tex);
-
-        resourceDescArray.push(resourceDesc);
     }
 
     // Create cpu descriptor heap
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-    heapDesc.NumDescriptors = resourceDescArray.size;
+    heapDesc.NumDescriptors = model.textureIDs.size;
     heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     heapDesc.Flags;
 
@@ -236,17 +218,19 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     uint heapIncrementSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     // Create srvs
-    for (uint i = 0; i < resourceDescArray.size; i++)
+    for (uint i = 0; i < model.textureIDs.size; i++)
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        srvDesc.Format = resourceDescArray[i].Format;
-        srvDesc.Texture2D.MipLevels = resourceDescArray[i].MipLevels;
+        int textureID = model.textureIDs[i];
+        D3D12_RESOURCE_DESC desc = pRenderer->textures[textureID].desc;
+        srvDesc.Format = desc.Format;
+        srvDesc.Texture2D.MipLevels = desc.MipLevels;
         srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
         srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
         D3D12_CPU_DESCRIPTOR_HANDLE descHandle = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
         descHandle.ptr += pRenderer->heapMgr.descriptorSizes[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] * i;
-        pDevice->CreateShaderResourceView(model.Textures[i].pRes, &srvDesc, descHandle);
+        pDevice->CreateShaderResourceView(pRenderer->textures[textureID].pRes, &srvDesc, descHandle);
     }
 
     // Create root signature for model
@@ -254,7 +238,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     // modelview matrix and texture
     D3D12_DESCRIPTOR_RANGE srvRange = {};
     srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srvRange.NumDescriptors = static_cast<uint>(model.Textures.size());
+    srvRange.NumDescriptors = static_cast<uint>(model.textureIDs.size);
 
     D3D12_ROOT_PARAMETER params[4];
     params[MVP_MATRIX] = {};
@@ -291,7 +275,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     rootSigDesc.pStaticSamplers = nullptr;
     rootSigDesc.NumStaticSamplers = 0;
 
-    if (model.Textures.size() > 0)
+    if (model.textureIDs.size > 0)
     {
         rootSigDesc.NumParameters++;
         rootSigDesc.NumStaticSamplers++;
@@ -358,7 +342,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
         for (int j = 0; j < pModel->meshes[i].primitives.size(); j++)
         {
-            Prim prim = {};
+            PrimitiveInfo prim = {};
             UINT numInputElements = 0;
             auto it = pModel->meshes[i].primitives[j].attributes.begin();
             semanticNames.resize(pModel->meshes[i].primitives[j].attributes.size());
@@ -438,9 +422,7 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
             if (matIdx >= 0)
             {
-                model.paramIdxs.push(matIdx);
-
-                ShaderParams const* pParams = &model.shaderParams[matIdx];
+                MaterialDesc const* pParams = &model.shaderParams[matIdx];
 
                 if (pParams->hasBaseTex)
                 {
@@ -480,9 +462,6 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC modelPsoDesc = {};
             modelPsoDesc.pRootSignature = model.pRootSignature;
-            // TODO: this is crappy figure out a better scheme via ubershader or something
-            //modelPsoDesc.VS = bytecodeFromBlob(hasTangent == true ? shaders[BUMP_MAPPED_VS] : model.Textures.size() > 0 ? shaders[TEXTURED_VS] : shaders[UNTEXTURED_VS]);
-            //modelPsoDesc.PS = bytecodeFromBlob(hasTangent == true ? shaders[BUMP_MAPPED_PS] : model.Textures.size() > 0 ? shaders[TEXTURED_PS] : shaders[UNTEXTURED_PS]);
             modelPsoDesc.VS = bytecodeFromBlob(vs);
             modelPsoDesc.PS = bytecodeFromBlob(ps);
             modelPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
@@ -626,16 +605,16 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
     pCmdList->SetGraphicsRootSignature(model.pRootSignature);
 
 	D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart = {};
-    if (model.Textures.size() > 0)
+    if (model.textureIDs.size > 0)
     {
         D3D12_CPU_DESCRIPTOR_HANDLE src = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-        assert(model.Textures.size() < INT_MAX);
-        srvTableStart = pRenderer->heapMgr.copyDescriptorsToGpuHeap(pDevice, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, src, static_cast<int>(model.Textures.size()));
+        assert(model.textureIDs.size < INT_MAX);
+        srvTableStart = pRenderer->heapMgr.copyDescriptorsToGpuHeap(pDevice, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, src, static_cast<int>(model.textureIDs.size));
 	}
 
     pCmdList->SetDescriptorHeaps(1, &pRenderer->heapMgr.mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].p);
 
-    if (model.Textures.size() > 0)
+    if (model.textureIDs.size > 0)
     {
         pCmdList->SetGraphicsRootDescriptorTable(TEXTURES, srvTableStart);
     }
@@ -648,7 +627,7 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
         const SceneNode* pNode = &model.sceneNodes[nodeidx];
         for (uint primidx = 0; primidx < model.meshes[pNode->meshIdx].prims.size; primidx++)
         {
-            Prim* pPrim = &model.meshes[pNode->meshIdx].prims[primidx];
+            PrimitiveInfo* pPrim = &model.meshes[pNode->meshIdx].prims[primidx];
 
             pCmdList->SetGraphicsRootConstantBufferView(0, model.ConstantBuffer->GetGPUVirtualAddress() + ((UINT64)model.alignedMatrixSize * primIdx));
             pCmdList->SetGraphicsRootConstantBufferView(1, model.ConstantBuffer2->GetGPUVirtualAddress() + ((UINT64)model.alignedConstantSize * primIdx));
