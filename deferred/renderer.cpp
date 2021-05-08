@@ -351,9 +351,15 @@ bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void cons
     unsigned char* pBufData;
     uploadTemp->Map(0, nullptr, reinterpret_cast<void**>(&pBufData));
 
-    // copy data to buffer
-    // todo: This is wrong for small resources like 4x4 textures with a 256 row pitch.
-    memcpy(pBufData, data, static_cast<size_t>(width) * height * comp);
+    // copy data to buffer - need to account for row pitch from footprint above
+    unsigned char const* pData = static_cast<const unsigned char*>(data);
+    for (int i = 0; i < height; i++)
+    {
+        memcpy(pBufData, pData, static_cast<size_t>(width) * comp);
+        pBufData += fp.Footprint.RowPitch;
+        pData += static_cast<size_t>(width) * comp;
+    }
+
     uploadTemp->Unmap(0, nullptr);
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc, destLoc;
@@ -484,9 +490,9 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
     // Get next submission and wait if we have to
     UINT nextSubmissionIdx = (pRenderer->currentSubmission + 1) % renderer::submitQueueDepth;
 
-    char fenceValueStr[1024];
-    sprintf_s(fenceValueStr, "pRenderer->pSubmitFence->GetCompletedValue(): %llu\n", pRenderer->pSubmitFence->GetCompletedValue());
-    OutputDebugString(fenceValueStr);
+    //char fenceValueStr[1024];
+    //sprintf_s(fenceValueStr, "pRenderer->pSubmitFence->GetCompletedValue(): %llu\n", pRenderer->pSubmitFence->GetCompletedValue());
+    //OutputDebugString(fenceValueStr);
 
     if (pRenderer->pSubmitFence->GetCompletedValue() < pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal)
     {
