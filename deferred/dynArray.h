@@ -73,6 +73,12 @@ struct DynArray
         size = 0;
     }
 
+    T& last()
+    {
+        assert(size > 0);
+        return arr[size - 1];
+    }
+
     uint size;
     uint capacity;
     std::unique_ptr<T[]> arr;

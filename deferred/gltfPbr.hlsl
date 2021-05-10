@@ -116,7 +116,7 @@ float V_GGX(float NdotL, float NdotV, float roughness)
 // Distribution of facets oriented in H direction
 float D_GGX(float NdotH, float roughness)
 {
-    float a2 = roughness * roughness + 0.000001;
+    float a2 = roughness * roughness;
     float f = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
     return a2 / (PI * f * f);
 }

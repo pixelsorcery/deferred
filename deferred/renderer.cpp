@@ -588,7 +588,7 @@ void updateCamera(Dx12Renderer* pRenderer, int mousex, int mousey, int mousedx, 
         const size_t cSize = strlen(str) + 1;
         size_t outSize;
         mbstowcs_s(&outSize, wc, cSize, str, cSize - 1);
-        OutputDebugStringW(wc);
+        //OutputDebugStringW(wc);
 #endif
 
         POINT point = { renderer::width / 2, renderer::height / 2 };
@@ -617,6 +617,6 @@ void updateCamera(Dx12Renderer* pRenderer, const bool keys[256], float dt)
     const size_t cSize = strlen(str) + 1;
     size_t outSize;
     mbstowcs_s(&outSize, wc, cSize, str, cSize - 1);
-    OutputDebugStringW(wc);
+    //OutputDebugStringW(wc);
 #endif
 }

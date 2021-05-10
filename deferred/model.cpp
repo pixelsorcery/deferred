@@ -133,46 +133,6 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
 
     tinygltf::Model* pModel = &model.TinyGltfModel;
 
-    // read in materials
-    for (auto& material : pModel->materials)
-    {
-        MaterialDesc param = {};
-        param.baseColor.r = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[0]);
-        param.baseColor.g = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[1]);
-        param.baseColor.b = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[2]);
-        param.baseColor.a = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[3]);
-
-        if (material.pbrMetallicRoughness.baseColorTexture.index >= 0)
-        {
-            param.hasBaseTex = true;
-        }
-        if (material.pbrMetallicRoughness.metallicRoughnessTexture.index >= 0)
-        {
-            param.hasRoughnessTex = true;
-        }
-        if (material.normalTexture.index >= 0)
-        {
-            param.hasNormalTex = true;
-        }
-        if (material.occlusionTexture.index >= 0)
-        {
-            param.hasOcclusion = true;
-        }
-        if (material.emissiveTexture.index >= 0)
-        {
-            param.hasEmissiveTex = true;
-        }
-
-        param.metallicFactor  = static_cast<float>(material.pbrMetallicRoughness.metallicFactor);
-        param.roughnessFactor = static_cast<float>(material.pbrMetallicRoughness.roughnessFactor);
-
-        param.emissiveFactor.r = static_cast<float>(material.emissiveFactor[0]);
-        param.emissiveFactor.g = static_cast<float>(material.emissiveFactor[1]);
-        param.emissiveFactor.b = static_cast<float>(material.emissiveFactor[2]);
-
-        model.shaderParams.push(param);
-    }
-
     // create textures
     for (size_t i = 0; i < pModel->images.size(); i++)
     {
@@ -198,39 +158,6 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         {
             return false;
         }
-    }
-
-    // Create cpu descriptor heap
-    D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-    heapDesc.NumDescriptors = model.textureIDs.size;
-    heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    heapDesc.Flags;
-
-    hr = pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&model.TextureDescriptorHeap));
-    if (FAILED(hr))
-    {
-        ErrorMsg("Descriptor heap creation for model failed.");
-        return false;
-    }
-
-    model.TextureDescriptorHeap->SetName(L"Texture Descriptor Heap for Model");
-
-    uint heapIncrementSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-    // Create srvs
-    for (uint i = 0; i < model.textureIDs.size; i++)
-    {
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        int textureID = model.textureIDs[i];
-        D3D12_RESOURCE_DESC desc = pRenderer->textures[textureID].desc;
-        srvDesc.Format = desc.Format;
-        srvDesc.Texture2D.MipLevels = desc.MipLevels;
-        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-
-        D3D12_CPU_DESCRIPTOR_HANDLE descHandle = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-        descHandle.ptr += pRenderer->heapMgr.descriptorSizes[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] * i;
-        pDevice->CreateShaderResourceView(pRenderer->textures[textureID].pRes, &srvDesc, descHandle);
     }
 
     // Create root signature for model
@@ -420,42 +347,64 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
             int matIdx = pModel->meshes[i].primitives[j].material;
             model.paramIdxs.push(matIdx);
 
-            if (matIdx >= 0)
+            MaterialDesc param = {};
+            param.baseColor.r = static_cast<float>(pModel->materials[matIdx].pbrMetallicRoughness.baseColorFactor[0]);
+            param.baseColor.g = static_cast<float>(pModel->materials[matIdx].pbrMetallicRoughness.baseColorFactor[1]);
+            param.baseColor.b = static_cast<float>(pModel->materials[matIdx].pbrMetallicRoughness.baseColorFactor[2]);
+            param.baseColor.a = static_cast<float>(pModel->materials[matIdx].pbrMetallicRoughness.baseColorFactor[3]);
+            
+            int numTextures = 0;
+            DynArray<int> textureIdxs;
+            if (pModel->materials[matIdx].pbrMetallicRoughness.baseColorTexture.index >= 0)
             {
-                MaterialDesc const* pParams = &model.shaderParams[matIdx];
-
-                if (pParams->hasBaseTex)
-                {
-                    macros.push_back({ "BASECOLOR_TEX", "1" });
-                }
-
-                if (pParams->hasNormalTex)
-                {
-                    macros.push_back({ "NORMAL_TEX", "1" });
-                }
-
-                if (pParams->hasRoughnessTex)
-                {
-                    macros.push_back({ "ROUGHNESSMETALLIC_TEX", "1" });
-                }
-
-                if (pParams->hasEmissiveTex)
-                {
-                    macros.push_back({ "EMISSIVE_TEX", "1" });
-                }
-
-                if (pParams->hasOcclusion)
-                {
-                    macros.push_back({ "HAS_OCCLUSION", "1" });
-                }
-
-                if (hasTangent == true)
-                {
-                    macros.push_back({ "HAS_TANGENT", "1" });
-                }
-
-                macros.push_back({ NULL, NULL });
+                param.hasBaseTex = true;
+                macros.push_back({ "BASECOLOR_TEX", "1" });
+                textureIdxs.push(pModel->materials[matIdx].pbrMetallicRoughness.baseColorTexture.index);
+                numTextures++;
             }
+            if (pModel->materials[matIdx].pbrMetallicRoughness.metallicRoughnessTexture.index >= 0)
+            {
+                param.hasRoughnessTex = true;
+                macros.push_back({ "ROUGHNESSMETALLIC_TEX", "1" });
+                textureIdxs.push(pModel->materials[matIdx].pbrMetallicRoughness.metallicRoughnessTexture.index);
+                numTextures++;
+            }
+            if (pModel->materials[matIdx].normalTexture.index >= 0)
+            {
+                param.hasNormalTex = true;
+                macros.push_back({ "NORMAL_TEX", "1" });
+                textureIdxs.push(pModel->materials[matIdx].normalTexture.index);
+                numTextures++;
+            }
+            if (pModel->materials[matIdx].occlusionTexture.index >= 0)
+            {
+                param.hasOcclusion = true;
+                macros.push_back({ "HAS_OCCLUSION", "1" });
+                // todo: is this the same as roughness/metallic texture?
+                // todo: what if there's only occlusion but no roughness/metallic texture?
+            }
+            if (pModel->materials[matIdx].emissiveTexture.index >= 0)
+            {
+                param.hasEmissiveTex = true;
+                macros.push_back({ "EMISSIVE_TEX", "1" });
+                textureIdxs.push(pModel->materials[matIdx].emissiveTexture.index);
+                numTextures++;
+            }
+            if (hasTangent == true)
+            {
+                macros.push_back({ "HAS_TANGENT", "1" });
+            }
+
+            macros.push_back({ NULL, NULL });
+
+            param.metallicFactor = static_cast<float>(pModel->materials[matIdx].pbrMetallicRoughness.metallicFactor);
+            param.roughnessFactor = static_cast<float>(pModel->materials[matIdx].pbrMetallicRoughness.roughnessFactor);
+
+            param.emissiveFactor.r = static_cast<float>(pModel->materials[matIdx].emissiveFactor[0]);
+            param.emissiveFactor.g = static_cast<float>(pModel->materials[matIdx].emissiveFactor[1]);
+            param.emissiveFactor.b = static_cast<float>(pModel->materials[matIdx].emissiveFactor[2]);
+
+            model.shaderParams.push(param);
 
             CComPtr<ID3DBlob> vs = compileShaderFromFile("gltfPbr.hlsl", "vs_5_1", "mainVS", macros.data());
             CComPtr<ID3DBlob> ps = compileShaderFromFile("gltfPbr.hlsl", "ps_5_1", "mainPS", macros.data());
@@ -484,6 +433,44 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
             {
                 ErrorMsg("Model pipeline creation failed.");
                 return false;
+            }
+
+            // Create cpu descriptor heap
+            CComPtr<ID3D12DescriptorHeap> descriptorHeap;
+            D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+            heapDesc.NumDescriptors = model.textureIDs.size;
+            heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+            heapDesc.Flags;
+
+            hr = pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&descriptorHeap));
+            if (FAILED(hr))
+            {
+                ErrorMsg("Descriptor heap creation for model failed.");
+                return false;
+            }
+
+            descriptorHeap->SetName(L"Texture Descriptor Heap for Model");
+
+            prim.pDescriptorHeap = descriptorHeap;
+            prim.numTextures = numTextures;
+            // Create srvs
+            for (int idx = 0; idx < numTextures; idx++)
+            {
+                // convert model id to renderer texture id
+                int modelTextureId = textureIdxs[idx];
+                int rendererTextureId = model.textureIDs[modelTextureId];
+
+                D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+                D3D12_RESOURCE_DESC desc = pRenderer->textures[rendererTextureId].desc;
+                srvDesc.Format = desc.Format;
+                srvDesc.Texture2D.MipLevels = desc.MipLevels;
+                srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+                D3D12_CPU_DESCRIPTOR_HANDLE descHandle = prim.pDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+                descHandle.ptr += pRenderer->heapMgr.descriptorSizes[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] * idx;
+
+                pDevice->CreateShaderResourceView(pRenderer->textures[rendererTextureId].pRes, &srvDesc, descHandle);
             }
 
             mesh.prims.push(prim);
@@ -604,21 +591,6 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
     // set root sig
     pCmdList->SetGraphicsRootSignature(model.pRootSignature);
 
-	D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart = {};
-    if (model.textureIDs.size > 0)
-    {
-        D3D12_CPU_DESCRIPTOR_HANDLE src = model.TextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-        assert(model.textureIDs.size < INT_MAX);
-        srvTableStart = pRenderer->heapMgr.copyDescriptorsToGpuHeap(pDevice, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, src, static_cast<int>(model.textureIDs.size));
-	}
-
-    pCmdList->SetDescriptorHeaps(1, &pRenderer->heapMgr.mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].p);
-
-    if (model.textureIDs.size > 0)
-    {
-        pCmdList->SetGraphicsRootDescriptorTable(TEXTURES, srvTableStart);
-    }
-
     pCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     int primIdx = 0;
@@ -628,6 +600,15 @@ void drawModel(Dx12Renderer* pRenderer, GltfModel& model, float dt)
         for (uint primidx = 0; primidx < model.meshes[pNode->meshIdx].prims.size; primidx++)
         {
             PrimitiveInfo* pPrim = &model.meshes[pNode->meshIdx].prims[primidx];
+
+            pCmdList->SetDescriptorHeaps(1, &pRenderer->heapMgr.mainDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].p);
+
+            if (pPrim->numTextures > 0)
+            {
+                D3D12_CPU_DESCRIPTOR_HANDLE src = pPrim->pDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+                D3D12_GPU_DESCRIPTOR_HANDLE srvTableStart = pRenderer->heapMgr.copyDescriptorsToGpuHeap(pDevice, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, src, pPrim->numTextures);
+                pCmdList->SetGraphicsRootDescriptorTable(TEXTURES, srvTableStart);
+            }
 
             pCmdList->SetGraphicsRootConstantBufferView(0, model.ConstantBuffer->GetGPUVirtualAddress() + ((UINT64)model.alignedMatrixSize * primIdx));
             pCmdList->SetGraphicsRootConstantBufferView(1, model.ConstantBuffer2->GetGPUVirtualAddress() + ((UINT64)model.alignedConstantSize * primIdx));

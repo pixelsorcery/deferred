@@ -32,6 +32,8 @@ struct PrimitiveInfo
     DynArray<D3D12_VERTEX_BUFFER_VIEW> bufferViews;
     CComPtr<ID3D12PipelineState>       pPipeline;
     CComPtr<ID3D12RootSignature>       pRootSignature;
+    CComPtr<ID3D12DescriptorHeap>      pDescriptorHeap;
+    int                                numTextures;
 };
 
 struct Mesh
@@ -72,7 +74,6 @@ struct GltfModel
     tinygltf::Model                           TinyGltfModel;
     std::vector<uint>                         IndexBufSize;
     uint                                      NumPrimitives;
-    CComPtr<ID3D12DescriptorHeap>             TextureDescriptorHeap;
     uint                                      NumDescriptors;
     D3D12_ROOT_DESCRIPTOR_TABLE               DescriptorTable;
     CComPtr<ID3D12Resource>                   ConstantBuffer;
