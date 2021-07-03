@@ -151,5 +151,14 @@
     <FxCompile Include="gltfPbr.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="gltfGbufferPass.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="gltfMerge.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="genMips.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

@@ -11,6 +11,13 @@
 #include "glm/glm.hpp"
 #include "dynArray.h"
 
+enum nonPow2Type {
+    WIDTH_HEIGHT_EVEN = 0,     // Both the width and the height of the texture are even.
+    WIDTH_ODD_HEIGHT_EVEN = 1, // The texture width is odd and the height is even.
+    WIDTH_EVEN_HEIGHT_ODD = 2, // The texture width is even and teh height is odd.
+    WIDTH_HEIGHT_ODD = 3      // Both the width and height of the texture are odd.
+};
+
 struct CmdSubmission
 {
     CmdSubmission()
@@ -119,6 +126,7 @@ void setDefaultPipelineState(Dx12Renderer* pRenderer, D3D12_GRAPHICS_PIPELINE_ST
 void submitCmdBuffer(Dx12Renderer* pRenderer);
 void present(Dx12Renderer* pRenderer, vsyncType vsync);
 int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width, uint height, DXGI_FORMAT format);
-bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, uint width, uint height, uint comp, DXGI_FORMAT format);
+bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, int width, int height, int comp, DXGI_FORMAT format);
 void updateCamera(Dx12Renderer* pRenderer, int mousex, int mousey, int mousedx, int mousedy);
 void updateCamera(Dx12Renderer* pRenderer, const bool keys[256], float dt);
+bool createMipMaps(Dx12Renderer* pRenderer, const Texture& tex);

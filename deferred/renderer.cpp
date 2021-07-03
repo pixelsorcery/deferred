@@ -300,6 +300,7 @@ CComPtr<ID3D12Resource> createBuffer(const Dx12Renderer* pRenderer, D3D12_HEAP_T
     return resource;
 }
 
+// Creates a local GPU visible image. Basically used for GPU only resources like texture maps.
 int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width, uint height, DXGI_FORMAT format)
 {
     Texture tex = {};
@@ -312,12 +313,14 @@ int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width,
     heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
     heapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 
+    int numMips = static_cast<int>(log2(fmax(width, height)));
+
     desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
     desc.Alignment = 0;
     desc.Width = width;
     desc.Height = height;
     desc.DepthOrArraySize = 1;
-    desc.MipLevels = 1;
+    desc.MipLevels = numMips;
     desc.Format = format;
     desc.SampleDesc.Count = 1;
     desc.SampleDesc.Quality = 0;
@@ -334,12 +337,92 @@ int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width,
         return -1;
     }
 
+    if (numMips > 1)
+    {
+        createMipMaps(pRenderer, tex);
+    }
+
     pRenderer->textures.push(tex);
 
     return pRenderer->textures.size - 1;
 }
 
-bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, uint width, uint height, uint comp, DXGI_FORMAT format)
+bool generateMipPipeline(Dx12Renderer* pRenderer, const Texture& tex)
+{
+    int isNonPow2 = (tex.desc.Width & 1) || ((tex.desc.Height & 1) << 1);
+    DynArray<D3D_SHADER_MACRO> macros;
+    switch (isNonPow2)
+    {
+    case WIDTH_HEIGHT_EVEN:
+        macros.push({ "NON_POWER_OF_TWO", "0" });
+        break;
+    case WIDTH_ODD_HEIGHT_EVEN:
+        macros.push({ "NON_POWER_OF_TWO", "1" });
+        break;
+    case WIDTH_EVEN_HEIGHT_ODD:
+        macros.push({ "NON_POWER_OF_TWO", "2" });
+        break;
+    case WIDTH_HEIGHT_ODD:
+        macros.push({ "NON_POWER_OF_TWO", "3" });
+        break;
+    }
+    macros.push({ NULL, NULL });
+
+    CComPtr<ID3DBlob> cs = compileShaderFromFile("genMips.hlsl", "cs_5_1", "main", macros.arr.get());
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC mipPsoDesc = {};
+    //mipPsoDesc.pRootSignature = 
+
+    return true;
+}
+
+bool createMipMaps(Dx12Renderer* pRenderer, const Texture& tex)
+{
+    const int MAX_ROOT_PARAMETERS = 10;
+    D3D12_ROOT_PARAMETER params[MAX_ROOT_PARAMETERS];
+
+    // shader only generates 4 mip levels at a time
+    int numDispatches = (tex.desc.MipLevels - 1) % 4;
+    
+    generateMipPipeline(pRenderer, tex);
+
+    for (int i = 0; i < numDispatches; i++)
+    {
+        int topMipWidth = tex.desc.Width >> i;
+        int topMipHeight = tex.desc.Height >> i;
+        int destMipWidth = topMipWidth >> 1;
+        int destMipHeight = topMipHeight >> 1;
+
+        destMipWidth  = destMipWidth == 0 ? 1 : destMipWidth; 
+        destMipHeight = destMipHeight == 0 ? 1 : destMipHeight;
+
+        // basically every bit is another mip level
+        DWORD additionalMips = 0;
+        _BitScanForward(&additionalMips, destMipWidth | destMipHeight);
+        const int mips2Generate = additionalMips > 3 ? 3 : additionalMips;
+        const int totalMips = mips2Generate + 1;
+
+        pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, i, 0);
+        pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, mips2Generate, 1);
+        pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, 1.0f / destMipWidth, 2);
+        pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, 1.0f / destMipHeight, 3);
+
+
+        /* TODO implement this
+        Context.SetConstants(0, TopMip, NumMips, 1.0f / DstWidth, 1.0f / DstHeight);
+        Context.SetDynamicDescriptors(2, 0, NumMips, m_UAVHandle + TopMip + 1);
+        Context.Dispatch2D(DstWidth, DstHeight);
+
+        Context.InsertUAVBarrier(*this);
+        */
+
+        i += totalMips;
+    }
+
+    return true;
+}
+
+bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, int width, int height, int comp, DXGI_FORMAT format)
 {
     HRESULT hr = S_OK;
     ID3D12Device* pDevice = pRenderer->pDevice;
@@ -619,4 +702,10 @@ void updateCamera(Dx12Renderer* pRenderer, const bool keys[256], float dt)
     mbstowcs_s(&outSize, wc, cSize, str, cSize - 1);
     //OutputDebugStringW(wc);
 #endif
+}
+
+// Generates mipmaps for a texture
+void generateMips(Dx12Renderer* pRenderer, Texture* pTexture)
+{
+
 }
