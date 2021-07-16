@@ -33,6 +33,7 @@ HRESULT HeapMgr::initializeHeaps(ID3D12Device* pDevice)
     return hr;
 }
 
+// TODO: keep track of which entries are in flight and assert if we overwrite entries still in use.
 D3D12_GPU_DESCRIPTOR_HANDLE HeapMgr::copyDescriptorsToGpuHeap(ID3D12Device* pDevice,
                                                               D3D12_DESCRIPTOR_HEAP_TYPE heapType,
                                                               D3D12_CPU_DESCRIPTOR_HANDLE src,
