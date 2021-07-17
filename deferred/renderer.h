@@ -10,13 +10,17 @@
 #include "heapMgr.h"
 #include "glm/glm.hpp"
 #include "dynArray.h"
+#include <string>
 
 enum nonPow2Type {
     WIDTH_HEIGHT_EVEN = 0,     // Both the width and the height of the texture are even.
     WIDTH_ODD_HEIGHT_EVEN = 1, // The texture width is odd and the height is even.
     WIDTH_EVEN_HEIGHT_ODD = 2, // The texture width is even and teh height is odd.
-    WIDTH_HEIGHT_ODD = 3      // Both the width and height of the texture are odd.
+    WIDTH_HEIGHT_ODD = 3,      // Both the width and height of the texture are odd.
+    NUM_MIPMAP_SHADER_TYPES = 4
 };
+
+static std::string nonPow2Strings[] = { "0", "1", "2", "3" };
 
 struct CmdSubmission
 {
@@ -111,6 +115,11 @@ struct Dx12Renderer
     // List of textures loaded
     DynArray<Texture> textures;
 
+    // Mip Mapping
+    CComPtr<ID3D12RootSignature> pMipmapRootSignature;
+    CComPtr<ID3D12PipelineState> pMipmapPipelines[NUM_MIPMAP_SHADER_TYPES];
+    CComPtr<ID3DBlob>            pMipmapCS[NUM_MIPMAP_SHADER_TYPES];
+
     // List of shaders
     // List of buffers
 
@@ -130,3 +139,4 @@ bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void cons
 void updateCamera(Dx12Renderer* pRenderer, int mousex, int mousey, int mousedx, int mousedy);
 void updateCamera(Dx12Renderer* pRenderer, const bool keys[256], float dt);
 bool createMipMaps(Dx12Renderer* pRenderer, const Texture& tex);
+bool initializeMipMapPipelines(Dx12Renderer* pRenderer);

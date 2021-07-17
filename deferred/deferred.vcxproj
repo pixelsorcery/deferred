@@ -126,6 +126,7 @@
     <ClCompile Include="heapMgr.cpp" />
     <ClCompile Include="heaps.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="mipmap.cpp" />
     <ClCompile Include="model.cpp" />
     <ClCompile Include="renderer.cpp" />
     <ClCompile Include="shaders.cpp" />

@@ -36,11 +36,15 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 
     CComPtr<IDXGIAdapter> dxgiAdapter;
     hr = dxgiFactory->EnumAdapters(0, &dxgiAdapter);
+    //hr = dxgiFactory->EnumAdapters(1, &dxgiAdapter);
     if (hr == DXGI_ERROR_NOT_FOUND)
     {
         ErrorMsg("No adapters found");
         return false;
     }
+
+    DXGI_ADAPTER_DESC adapterDesc;
+    hr = dxgiAdapter->GetDesc(&adapterDesc);
 
 #if defined(_DEBUG)
     hr = D3D12GetDebugInterface(IID_PPV_ARGS(&pRenderer->debugController));
@@ -263,6 +267,14 @@ bool initDevice(Dx12Renderer* pRenderer, HWND hwnd)
 
     pRenderer->camera.position = glm::vec3(0.0f, 0.0f, -1.0f);
 
+    // create mipmap pipeline
+    bool res = initializeMipMapPipelines(pRenderer);
+    if (res == false)
+    {
+        ErrorMsg("Failed to create mipmap pipeline.");
+        return false;
+    }
+
     return true;
 }
 
@@ -347,49 +359,15 @@ int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width,
     return pRenderer->textures.size - 1;
 }
 
-bool generateMipPipeline(Dx12Renderer* pRenderer, const Texture& tex)
-{
-    int isNonPow2 = (tex.desc.Width & 1) || ((tex.desc.Height & 1) << 1);
-    DynArray<D3D_SHADER_MACRO> macros;
-    switch (isNonPow2)
-    {
-    case WIDTH_HEIGHT_EVEN:
-        macros.push({ "NON_POWER_OF_TWO", "0" });
-        break;
-    case WIDTH_ODD_HEIGHT_EVEN:
-        macros.push({ "NON_POWER_OF_TWO", "1" });
-        break;
-    case WIDTH_EVEN_HEIGHT_ODD:
-        macros.push({ "NON_POWER_OF_TWO", "2" });
-        break;
-    case WIDTH_HEIGHT_ODD:
-        macros.push({ "NON_POWER_OF_TWO", "3" });
-        break;
-    }
-    macros.push({ NULL, NULL });
-
-    CComPtr<ID3DBlob> cs = compileShaderFromFile("genMips.hlsl", "cs_5_1", "main", macros.arr.get());
-
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC mipPsoDesc = {};
-    //mipPsoDesc.pRootSignature = 
-
-    return true;
-}
-
 bool createMipMaps(Dx12Renderer* pRenderer, const Texture& tex)
 {
-    const int MAX_ROOT_PARAMETERS = 10;
-    D3D12_ROOT_PARAMETER params[MAX_ROOT_PARAMETERS];
-
     // shader only generates 4 mip levels at a time
-    int numDispatches = (tex.desc.MipLevels - 1) % 4;
-    
-    generateMipPipeline(pRenderer, tex);
+    const int numDispatches = (tex.desc.MipLevels - 1) % 4;
 
     for (int i = 0; i < numDispatches; i++)
     {
-        int topMipWidth = tex.desc.Width >> i;
-        int topMipHeight = tex.desc.Height >> i;
+        int topMipWidth = static_cast<int>(tex.desc.Width >> i);
+        int topMipHeight = static_cast<int>(tex.desc.Height >> i);
         int destMipWidth = topMipWidth >> 1;
         int destMipHeight = topMipHeight >> 1;
 
@@ -402,18 +380,20 @@ bool createMipMaps(Dx12Renderer* pRenderer, const Texture& tex)
         const int mips2Generate = additionalMips > 3 ? 3 : additionalMips;
         const int totalMips = mips2Generate + 1;
 
+        pRenderer->GetCurrentCmdList()->SetComputeRootSignature(pRenderer->pMipmapRootSignature);
+
+        const int shaderType = (topMipWidth & 1) || ((topMipHeight & 1) << 1);
+        pRenderer->GetCurrentCmdList()->SetPipelineState(pRenderer->pMipmapPipelines[shaderType]);
+
         pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, i, 0);
         pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, mips2Generate, 1);
-        pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, 1.0f / destMipWidth, 2);
+        pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, 1.0f / destMipWidth, 2); //todo verify this
         pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, 1.0f / destMipHeight, 3);
 
-
         /* TODO implement this
-        Context.SetConstants(0, TopMip, NumMips, 1.0f / DstWidth, 1.0f / DstHeight);
-        Context.SetDynamicDescriptors(2, 0, NumMips, m_UAVHandle + TopMip + 1);
-        Context.Dispatch2D(DstWidth, DstHeight);
-
-        Context.InsertUAVBarrier(*this);
+        //set descriptors
+        //dispatch
+        //uav barrier
         */
 
         i += totalMips;
@@ -588,7 +568,7 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
     if (pRenderer->pSubmitFence->GetCompletedValue() < pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal)
     {
 		char fenceValueStr[1024];
-		sprintf_s(fenceValueStr, "completed fence value: %llu, waiting on completionFenceValue: %llu\n", pRenderer->pSubmitFence->GetCompletedValue(), pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal);
+		//sprintf_s(fenceValueStr, "completed fence value: %llu, waiting on completionFenceValue: %llu\n", pRenderer->pSubmitFence->GetCompletedValue(), pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal);
 		OutputDebugString(fenceValueStr);
 		pRenderer->pSubmitFence->SetEventOnCompletion(pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal, pRenderer->fenceEvent);
         WaitForSingleObject(pRenderer->fenceEvent, INFINITE);
