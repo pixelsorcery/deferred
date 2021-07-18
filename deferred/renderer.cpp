@@ -325,7 +325,7 @@ int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width,
     heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
     heapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 
-    int numMips = static_cast<int>(log2(fmax(width, height)));
+    int numMips = static_cast<int>(log2(fmax(width, height))) + 1;
 
     desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
     desc.Alignment = 0;
@@ -336,7 +336,7 @@ int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width,
     desc.Format = format;
     desc.SampleDesc.Count = 1;
     desc.SampleDesc.Quality = 0;
-    desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+    desc.Flags = numMips > 1 ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE; // TODO: make a temp resource for mip generation
     desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 
     hr = pRenderer->pDevice->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE,
@@ -349,57 +349,20 @@ int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width,
         return -1;
     }
 
+    tex.srvDescIdx = pRenderer->heapMgr.createSRVDescriptor(pRenderer->pDevice, tex);
+
+
     if (numMips > 1)
     {
-        createMipMaps(pRenderer, tex);
+        for (int i = 0; i < numMips; i++)
+        {
+            tex.mipIdx[i] = pRenderer->heapMgr.createUAVDescriptor(pRenderer->pDevice, tex, i);
+        }
     }
 
     pRenderer->textures.push(tex);
 
     return pRenderer->textures.size - 1;
-}
-
-bool createMipMaps(Dx12Renderer* pRenderer, const Texture& tex)
-{
-    // shader only generates 4 mip levels at a time
-    const int numDispatches = (tex.desc.MipLevels - 1) % 4;
-
-    for (int i = 0; i < numDispatches; i++)
-    {
-        int topMipWidth = static_cast<int>(tex.desc.Width >> i);
-        int topMipHeight = static_cast<int>(tex.desc.Height >> i);
-        int destMipWidth = topMipWidth >> 1;
-        int destMipHeight = topMipHeight >> 1;
-
-        destMipWidth  = destMipWidth == 0 ? 1 : destMipWidth; 
-        destMipHeight = destMipHeight == 0 ? 1 : destMipHeight;
-
-        // basically every bit is another mip level
-        DWORD additionalMips = 0;
-        _BitScanForward(&additionalMips, destMipWidth | destMipHeight);
-        const int mips2Generate = additionalMips > 3 ? 3 : additionalMips;
-        const int totalMips = mips2Generate + 1;
-
-        pRenderer->GetCurrentCmdList()->SetComputeRootSignature(pRenderer->pMipmapRootSignature);
-
-        const int shaderType = (topMipWidth & 1) || ((topMipHeight & 1) << 1);
-        pRenderer->GetCurrentCmdList()->SetPipelineState(pRenderer->pMipmapPipelines[shaderType]);
-
-        pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, i, 0);
-        pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, mips2Generate, 1);
-        pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, 1.0f / destMipWidth, 2); //todo verify this
-        pRenderer->GetCurrentCmdList()->SetComputeRoot32BitConstant(0, 1.0f / destMipHeight, 3);
-
-        /* TODO implement this
-        //set descriptors
-        //dispatch
-        //uav barrier
-        */
-
-        i += totalMips;
-    }
-
-    return true;
 }
 
 bool uploadTexture(Dx12Renderer* pRenderer, ID3D12Resource* pResource, void const* data, int width, int height, int comp, DXGI_FORMAT format)

@@ -158,6 +158,8 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
         {
             return false;
         }
+
+        createMipMaps(pRenderer, pRenderer->textures[textureId]);
     }
 
     // Create root signature for model
@@ -194,8 +196,8 @@ bool loadModel(Dx12Renderer* pRenderer, GltfModel& model, const char* filename)
     sampDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     sampDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
     sampDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-    //sampDesc.MinLOD = 0.f;
-    //sampDesc.MaxLOD = D3D12_FLOAT32_MAX;
+    sampDesc.MinLOD = 0.f;
+    sampDesc.MaxLOD = D3D12_FLOAT32_MAX;
 
     D3D12_ROOT_SIGNATURE_DESC rootSigDesc = {};
     rootSigDesc.NumParameters = NUM_ENTRIES - 1;

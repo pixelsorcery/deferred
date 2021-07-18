@@ -10,6 +10,7 @@
 #include "heapMgr.h"
 #include "glm/glm.hpp"
 #include "dynArray.h"
+#include "texture.h"
 #include <string>
 
 enum nonPow2Type {
@@ -45,12 +46,7 @@ enum vsyncType
     vsyncOff
 };
 
-struct Texture
-{
-    CComPtr<ID3D12Resource> pRes;
-    D3D12_RESOURCE_DESC     desc;
-};
-
+/*
 struct DescriptorHeap
 {
     CComPtr<ID3D12DescriptorHeap> pDescHeap;
@@ -71,6 +67,7 @@ struct DescriptorHeap
         descSize = pDevice->GetDescriptorHandleIncrementSize(desc.Type);
     }
 };
+*/
 
 struct Dx12Renderer
 {
