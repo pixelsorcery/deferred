@@ -46,29 +46,6 @@ enum vsyncType
     vsyncOff
 };
 
-/*
-struct DescriptorHeap
-{
-    CComPtr<ID3D12DescriptorHeap> pDescHeap;
-    D3D12_CPU_DESCRIPTOR_HANDLE   cpuDescHandle;
-    D3D12_GPU_DESCRIPTOR_HANDLE   gpuDescHandle;
-    UINT                          descSize;
-
-    void Init(ID3D12Device* pDevice, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT size, D3D12_DESCRIPTOR_HEAP_FLAGS flags)
-    {
-        D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-        desc.Type = heapType;
-        desc.Flags = flags;
-        desc.NumDescriptors = size;
-
-        pDevice->CreateDescriptorHeap(&desc, __uuidof(ID3D12DescriptorHeap), (void**)&pDescHeap);
-        cpuDescHandle = pDescHeap->GetCPUDescriptorHandleForHeapStart();
-        gpuDescHandle = pDescHeap->GetGPUDescriptorHandleForHeapStart();
-        descSize = pDevice->GetDescriptorHandleIncrementSize(desc.Type);
-    }
-};
-*/
-
 struct Dx12Renderer
 {
     HWND                          hwnd;
