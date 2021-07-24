@@ -351,7 +351,6 @@ int createTexture(Dx12Renderer* pRenderer, D3D12_HEAP_TYPE heapType, uint width,
 
     tex.srvDescIdx = pRenderer->heapMgr.createSRVDescriptor(pRenderer->pDevice, tex);
 
-
     if (numMips > 1)
     {
         for (int i = 0; i < numMips; i++)
@@ -530,9 +529,9 @@ void submitCmdBuffer(Dx12Renderer* pRenderer)
 
     if (pRenderer->pSubmitFence->GetCompletedValue() < pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal)
     {
-		char fenceValueStr[1024];
+		//char fenceValueStr[1024];
 		//sprintf_s(fenceValueStr, "completed fence value: %llu, waiting on completionFenceValue: %llu\n", pRenderer->pSubmitFence->GetCompletedValue(), pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal);
-		OutputDebugString(fenceValueStr);
+		//OutputDebugString(fenceValueStr);
 		pRenderer->pSubmitFence->SetEventOnCompletion(pRenderer->cmdSubmissions[nextSubmissionIdx].completionFenceVal, pRenderer->fenceEvent);
         WaitForSingleObject(pRenderer->fenceEvent, INFINITE);
     }
