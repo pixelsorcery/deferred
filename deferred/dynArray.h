@@ -6,10 +6,7 @@
 template <class T>
 struct DynArray
 {
-    DynArray() : capacity(16), size(0)
-    {
-        arr = std::make_unique<T[]>(capacity);
-    };
+    DynArray() : capacity(16), size(0), arr(std::make_unique<T[]>(capacity)) {};
 
     DynArray(const DynArray& other) : size(other.size), capacity(other.capacity)
     {
